@@ -149,3 +149,10 @@
 2. `Projects.astro` の frontmatter で画像を import
 3. `portfolio` 配列にエントリを追加
 4. 数値アピールが必要なら `stats` を設定
+
+---
+
+## CI/CD ルール
+
+- **デプロイ**: GitHub Actions（`.github/workflows/deploy.yml`）で `main` push 時に自動ビルド → FTP デプロイ
+- **push 後の確認**: `git push` 実行後は `gh run watch` で GitHub Actions の結果を確認し、成功・失敗をユーザーに報告すること
