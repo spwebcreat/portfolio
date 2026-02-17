@@ -86,7 +86,7 @@
 | 2 | 合同会社CLAB.様 | false | Design, Coding | works01.jpg |
 | 3 | SOU様 | false | Design, Coding | works04.jpg |
 | 4 | SOU WEDDING様 | false | Design, Coding | works05.jpg |
-| 5 | 飲食チェーン店様 | true | Design, Coding | works02.jpg |
+| 5 | 株式会社てりとりー様 | false | Design, Coding | works02.jpg |
 | 6 | 不動産会社様 | true | Coding | works03.jpg |
 | 7 | 結婚相談所様 | true | Coding | works06.jpg |
 
@@ -149,6 +149,54 @@
 2. `Projects.astro` の frontmatter で画像を import
 3. `portfolio` 配列にエントリを追加
 4. 数値アピールが必要なら `stats` を設定
+
+---
+
+## Blogs セクション仕様
+
+技術記事と制作ノウハウを発信するブログセクション。
+
+**詳細な設計判断は `docs/adr-001-blog-architecture.md` を参照。**
+
+### 構築ロードマップ
+
+| Phase | データソース | 状態 |
+|-------|-------------|------|
+| Phase 1 | Markdown (Astro Content Collections) | 未着手 |
+| Phase 2 | ヘッドレス CMS (未選定) | Phase 1 完了後に検討 |
+
+### コンテンツ方針
+
+- **技術記事**: 開発Tips、技術検証、学習記録
+- **制作ノウハウ**: デザイン・コーディングの制作過程、クライアントワークの知見
+
+### ページ構成
+
+- トップページ (`index.astro`): 最新記事を数件カード表示
+- ブログ一覧: `/blog` で全記事一覧
+- 詳細ページ: `/blog/[slug]` で記事本文表示
+
+### Phase 1 のデータ構造
+
+記事は `src/content/blog/*.md` に配置し、Content Collections で管理:
+
+```yaml
+# frontmatter schema
+title: string          # 記事タイトル
+description: string    # 記事の概要
+pubDate: Date          # 公開日
+updatedDate?: Date     # 更新日（optional）
+category: 'tech' | 'works'  # 技術記事 or 制作ノウハウ
+tags: string[]         # 技術タグ
+image?: string         # OGP・カード用画像（optional）
+draft: boolean         # true なら非公開
+```
+
+### 移行時の注意点
+
+- Phase 2 移行時、URL 構造 (`/blog/[slug]`) は維持すること
+- SEO（OGP, メタタグ）は Phase 1 から対応
+- `src/wp/wordpress.tsx` は Phase 1 開始時に削除を検討
 
 ---
 
