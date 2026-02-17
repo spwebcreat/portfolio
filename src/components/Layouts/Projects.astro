@@ -1,11 +1,12 @@
 ---
 import { Image } from 'astro:assets'
-import PortfolioImage01 from '../../assets/img/portolio01.jpg'
-import PortfolioImage02 from '../../assets/img/portolio02.jpg'
+import Projects01 from '../../assets/img/projects01.jpg'
+import Projects02 from '../../assets/img/projects02.jpg'
+import Projects03 from '../../assets/img/projects03.jpg'
 
 const portfolio = [
   {
-    image: PortfolioImage02,
+    image: Projects02,
     title: 'AI MONSTER CREATOR.',
     url: 'https://ai-monster-creator.vercel.app/',
     tech: [
@@ -20,7 +21,7 @@ const portfolio = [
     description: 'ユーザーが入力した特徴と属性を基にAIを使用してユニークなモンスター画像を生成できるサイトです。フロントエンドはNext.js 14、バックエンドはVercel KV、Vercel Blobを使用しています。',
   },
   {
-    image: PortfolioImage01,
+    image: Projects01,
     title: 'SP WEB CREAT.',
     url: 'https://www.sp-webcreat.pro/',
     tech: [
@@ -34,17 +35,33 @@ const portfolio = [
     ],
     description: '動きのある3Dグラフィックスはreact-three/fiberを使用しています。フロントエンドはモダンJavascript、ブログ部分のバックエンドはWordpressを使用したヘッドレスCMSを使用中です。',
   },
+  {
+    image: Projects03,
+    title: 'WP MANAGE PORTAL.',
+    url: 'https://wp-manage.site/',
+    stats: { value: '10', label: 'サイト 運用保守中' },
+    tech: [
+      'WordPress',
+      'PHP 8',
+      'REST API',
+      'TCPDF',
+      'Chart.js',
+      'Vanilla JS',
+      'MySQL',
+    ],
+    description: 'フルスクラッチ業務システム。現在10サイトの運用保守を一元管理し、月次レポートの自動生成・PDF出力・クライアント配信を行う自社開発の業務効率化ポータルです。独自のChild Plugin REST APIでサイトデータを収集し、カスタムテーマとTCPDFで構築しています。テストアカウント（ID: test1@test.com / Pass: test9999）',
+  },
 ]
 ---
 
 
-<section class="sec portfolios">
+<section class="sec projects">
 
 
   <div class="content">
 
     <div class="contentTitle">
-      <h2 class="title">PORTFOLIOS</h2>
+      <h2 class="title">PROJECTS</h2>
     </div>
 
     <div class="contentBody">
@@ -54,12 +71,20 @@ const portfolio = [
         {
           portfolio.map((item) => (
             <div class="card">
-              <a class="cardImage hover:opacity-90" href={item.url} target="_blank">
+              <a class="cardImage hover:opacity-90" href={item.url} target="_blank" rel="noopener noreferrer" aria-label={item.title}>
                 <Image src={item.image} alt="profile" />
                 <span>{item.url}</span>
               </a>
               <div class="cardMeta">
                 <div class="cardMetaTitle">{item.title}</div>
+                {item.stats && (
+                  <div class="cardMetaStats">
+                    <span class="statsBadge">
+                      <span class="statsBadgeValue">{item.stats.value}</span>
+                      <span class="statsBadgeLabel">{item.stats.label}</span>
+                    </span>
+                  </div>
+                )}
                 <div class="cardMetaDescription">
                   {item.description}
                 </div>
@@ -104,15 +129,24 @@ const portfolio = [
       @apply bg-primary p-2 w-full block text-center text-white absolute bottom-0 left-0 text-sm font-bold
 
   .cardMeta
-    > * + * 
+    > * + *
       @apply mt-8
     &Title
       @apply text-2xl font-extrabold
+    &Stats
+      @apply flex items-center gap-3
     &Description
       line-height 1.8
     &Tech
-      @apply flex flex-wrap gap-2
+      @apply flex flex-wrap gap-1
       li
-        @apply bg-bk text-white px-2 py-1 text-sm font-bold
+        @apply bg-bk text-white px-2 py-2 text-sm font-bold
+
+  .statsBadge
+    @apply inline-flex items-center gap-2 bg-primary rounded-full px-4 py-2
+    &Value
+      @apply text-lg font-black text-white leading-none
+    &Label
+      @apply text-xs font-bold text-white
 
 </style>

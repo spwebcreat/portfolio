@@ -3,14 +3,23 @@ import tailwind from "@astrojs/tailwind";
 import react from "@astrojs/react";
 import lenis from "astro-lenis";
 import icon from "astro-icon";
+import partytown from '@astrojs/partytown';
 // https://astro.build/config
 export default defineConfig({
-  integrations: [tailwind(), react(), lenis(),
+  integrations: [
+    tailwind(), 
+    react(), 
+    lenis(),
     icon({
       include: {
         octicon: ['*'], // octicon アイコンセットを追加
       },
-    })
+    }),
+    partytown({
+      config: {
+        forward: ['dataLayer.push'],
+      },
+    }),
   ],
   vite: {
     plugins: [],
@@ -30,5 +39,8 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 1000, // 1000kBに設定
-  }
+  },
+  script: {
+    external: ['https://www.googletagmanager.com/gtm.js'],
+  },
 });

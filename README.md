@@ -91,3 +91,55 @@ export default defineConfig({
   },
 });
 ```
+
+## Google タグマネージャーの実装
+1. GTMのコンテナIDを取得します。
+2. Astroプロジェクトに@astrojs/partytownをインストールします:
+```
+npm install -D @astrojs/partytown
+```
+3. `astro.config.mjs`にPartytownの設定を追加します:
+```
+import { defineConfig } from 'astro/config';
+import partytown from '@astrojs/partytown';
+
+export default defineConfig({
+  integrations: [
+    partytown({
+      config: {
+        forward: ['dataLayer.push'],
+      },
+    }),
+  ],
+});
+```
+4. レイアウトファイル(例: Layout.astro)の<head>セクションにGTMのスクリプトを追加します:
+```
+<head>
+  <!-- Google Tag Manager -->
+  <script is:inline type="text/partytown">
+    (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-XXXXXXX');
+  </script>
+  <!-- End Google Tag Manager -->
+</head>
+```
+5. <body>タグの直後にノンスクリプトタグを追加します:
+```
+<body>
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-XXXXXXX"
+  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
+
+  <!-- ページコンテンツ -->
+</body>
+```
+### 注意点
+- GTM-XXXXXXXは実際のGTMコンテナIDに置き換えてください.
+- Partytownを使用することで、サードパーティスクリプトのパフォーマンスへの影響を最小限に抑えられます.
+- dataLayerのイベントを正しく転送するために、forward: ['dataLayer.push']の設定が重要です.
+- この設定により、AstroサイトでGTMを効率的に実装でき、パフォーマンスを維持しながらタグ管理が可能になります。

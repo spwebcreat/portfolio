@@ -1,14 +1,37 @@
 ---
 import { Image } from 'astro:assets'
+import Works00Img from '../../assets/img/works00.jpg'
 import Works01Img from '../../assets/img/works01.jpg'
 import Works02Img from '../../assets/img/works02.jpg'
+import Works03Img from '../../assets/img/works03.jpg'
+import Works04Img from '../../assets/img/works04.jpg'
+import Works05Img from '../../assets/img/works05.jpg'
+import Works06Img from '../../assets/img/works06.jpg'
 
 const portfolio = [
 
   {
+    sort: 1,
+    image: Works00Img,
+    title: 'FOR U様',
+    url: 'https://bhf-4u.com/',
+    anonymous: false,
+    scope: ['design', 'coding'],
+    tech: [
+      'Wordpress',
+      'PHP',
+      'MySQL',
+      'GSAP',
+    ],
+    description: 'パーティーのプロデュースを行う会社様。楽しいキャラクターが随所に登場します。Figmaでデザイン、WordPressでコーディングと制作全般・インフラ周りすべてを担当。',
+  },
+  {
+    sort: 2,
     image: Works01Img,
     title: '合同会社CLAB.様',
     url: 'https://www.creative-laboratory.co.jp/',
+    anonymous: false,
+    scope: ['design', 'coding'],
     tech: [
       'Wordpress',
       'PHP',
@@ -16,12 +39,15 @@ const portfolio = [
       'Lenis.js',
       'GSAP',
     ],
-    description: '販売促進に役立つクリエイティブを制作する会社様。Figmaでデザイン、WordPressdでコーディングと制作全般・インフラ周りすべてを担当。',
+    description: '販売促進に役立つクリエイティブを制作する会社様。Figmaでデザイン、WordPressでコーディングと制作全般・インフラ周りすべてを担当。',
   },
   {
+    sort: 5,
     image: Works02Img,
-    title: '株式会社てりとりー様',
+    title: '飲食チェーン店様',
     url: 'https://territory.okinawa.jp/',
+    anonymous: true,
+    scope: ['design', 'coding'],
     tech: [
       'Wordpress',
       'PHP',
@@ -29,11 +55,78 @@ const portfolio = [
       'Lenis.js',
       'LottieAnimation',
       'GSAP',
-      
     ],
     description: '沖縄料理飲食店様のWEBサイト。Figmaでデザイン、WordPressでコーディングと制作全般・インフラ周りすべてを担当。企業さまの魅力を活かしつつ、沖縄らしさを波やシーザー・首里城などで表現。多彩な表現やページ速度対策のため軽量のLottieアニメーションなども採用してみました。',
   },
+  {
+    sort: 6,
+    image: Works03Img,
+    title: '不動産会社様',
+    url: 'https://www.field-fd.co.jp/',
+    anonymous: true,
+    scope: ['coding'],
+    tech: [
+      'Wordpress',
+      'PHP',
+      'MySQL',
+      'CSS設計',
+      'レスポンシブ',
+    ],
+    description: 'コーポレートサイトと採用サイトのコーディングを担当。デザインや構成がそれぞれ異なり、2サイト分のボリュームがある案件です。デザインカンプを元にWordPressでのコーディング・テーマ構築と制作全般を担当しました。',
+  },
+  {
+    sort: 3,
+    image: Works04Img,
+    title: 'SOU様',
+    url: 'https://sou-space.osaka/',
+    anonymous: false,
+    scope: ['design', 'coding'],
+    tech: [
+      'Wordpress',
+      'PHP',
+      'MySQL',
+      'SVGアニメーション',
+      'GSAP',
+    ],
+    description: '大阪市北区にある100坪のリノベーション倉庫を活用したレンタルスペース・スタジオのWEBサイト。ウエディング・フォトスタジオ・イベントなど多彩な用途に対応する施設の魅力を伝えるデザインに。Figmaでデザイン、WordPressでコーディングと制作全般・インフラ周りすべてを担当。',
+  },
+  {
+    sort: 4,
+    image: Works05Img,
+    title: 'SOU WEDDING様',
+    url: 'https://sou-wedding.osaka/',
+    anonymous: false,
+    scope: ['design', 'coding'],
+    tech: [
+      'Wordpress',
+      'PHP',
+      'MySQL',
+      'WebP最適化',
+      'GSAP',
+    ],
+    description: '完全貸切のオリジナルウエディングをプロデュースするサービスのWEBサイト。1日1組限定の特別感を演出する上品で洗練されたデザインに仕上げました。Figmaでデザイン、WordPressでコーディングと制作全般・インフラ周りすべてを担当。',
+  },
+  {
+    sort: 7,
+    image: Works06Img,
+    title: '結婚相談所様',
+    url: 'https://coeuracoeur2025.com/',
+    anonymous: true,
+    scope: ['coding'],
+    tech: [
+      'HTML',
+      'SCSS',
+      'JavaScript',
+      'レスポンシブ',
+    ],
+    description: '結婚相談所のランディングページのコーディングを担当。信頼感と親しみやすさを両立するデザインカンプを元に、HTML/SCSS/JSでのコーディングを担当しました。',
+  },
 ]
+
+const scopeLabels: Record<string, string> = {
+  design: 'Design',
+  coding: 'Coding',
+}
 ---
 
 
@@ -48,17 +141,32 @@ const portfolio = [
 
     <div class="contentBody">
 
-
       <div class="cards">
         {
-          portfolio.map((item) => (
+          [...portfolio].sort((a, b) => a.sort - b.sort).map((item) => (
             <div class="card">
-              <a class="cardImage hover:opacity-90" href={item.url} target="_blank">
-                <Image src={item.image} alt="profile" />
-                <span>{item.url}</span>
-              </a>
+              {item.anonymous ? (
+                <div class="cardImage">
+                  <Image src={item.image} alt={item.title} />
+                </div>
+              ) : (
+                <a class="cardImage hover:opacity-90" href={item.url} target="_blank">
+                  <Image src={item.image} alt={item.title} />
+                  <span>{item.url}</span>
+                </a>
+              )}
               <div class="cardMeta">
-                <div class="cardMetaTitle">{item.title}</div>
+                <div class="cardMetaTitle">
+                  {item.title}
+                  {item.anonymous && <span class="anonymousBadge">掲載許可申請中</span>}
+                </div>
+                <div class="cardMetaScope">
+                  {item.scope.map((s) => (
+                    <span class:list={['scopeBadge', `scopeBadge--${s}`]}>
+                      {scopeLabels[s]}
+                    </span>
+                  ))}
+                </div>
                 <div class="cardMetaDescription">
                   {item.description}
                 </div>
@@ -75,7 +183,6 @@ const portfolio = [
         }
 
       </div>
-
 
     </div>
 
@@ -96,22 +203,35 @@ const portfolio = [
       @apply grid-cols-1
 
   .cardImage
-    @apply transition-opacity duration-300 relative
+    @apply transition-opacity duration-300 relative overflow-hidden
+    aspect-ratio 4/3
     img
       @apply w-full h-full object-cover
     span
       @apply bg-primary p-2 w-full block text-center text-white absolute bottom-0 left-0 text-sm font-bold
 
   .cardMeta
-    > * + * 
+    > * + *
       @apply mt-8
     &Title
-      @apply text-3xl font-extrabold
+      @apply text-3xl font-extrabold flex items-center gap-3 flex-wrap
+    &Scope
+      @apply flex gap-2 flex-wrap
     &Description
       line-height 1.8
     &Tech
-      @apply flex flex-wrap gap-2
+      @apply flex flex-wrap gap-1
       li
-        @apply bg-bk text-white px-2 py-1 text-sm font-bold
+        @apply bg-bk text-white px-2 py-2 text-sm font-bold
+
+  .anonymousBadge
+    @apply text-xs font-normal bg-gray-400 text-white px-2 py-1 rounded
+
+  .scopeBadge
+    @apply inline-flex items-center text-xs font-bold px-3 py-1 rounded-full border
+    &--design
+      @apply border-primary text-primary
+    &--coding
+      @apply border-sky-400 text-sky-400
 
 </style>
