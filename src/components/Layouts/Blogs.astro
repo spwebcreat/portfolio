@@ -1,73 +1,96 @@
 ---
+import { Image } from 'astro:assets'
+import { getLatestPosts, formatDate } from '../../lib/blog'
+import NoImage from '../../assets/img/noimage.jpg'
 
-const blogs = [
-
-  {
-    image: '',
-    title: '',
-    url: '',
-    tech: [
-      '',
-    ],
-    description: '',
-  },
-]
+const posts = await getLatestPosts(3);
+const hasPosts = posts.length > 0;
 ---
 
-
 <section class="sec blogs">
-
-
   <div class="content">
-
     <div class="contentTitle">
       <h2 class="title">BLOGS</h2>
     </div>
-
-    <div class="text-center text-2xl font-bold">Comming Soon...</div>
-
     <div class="contentBody">
+      {!hasPosts ? (
+        <div class="text-center text-2xl font-bold">Coming Soon...</div>
+      ) : (
+        <div class="cards">
+          {posts.map((post) => (
+            <a href={`/blog/${post.slug}/`} class="card">
+              {post.data.heroImage ? (
+                <div class="cardImage">
+                  <Image src={post.data.heroImage} alt={post.data.title} />
+                </div>
+              ) : (
+                <div class="cardImage">
+                  <Image src={NoImage} alt={post.data.title} />
+                </div>
+              )}
+              <div class="cardMeta">
+                <div class="cardMetaDate">
+                  <time datetime={post.data.pubDate.toISOString()}>
+                    {formatDate(post.data.pubDate)}
+                  </time>
+                </div>
+                <div class="cardMetaTitle">{post.data.title}</div>
+                <ul class="cardMetaTech">
+                  {post.data.tags.map((tag) => (
+                    <li>{tag}</li>
+                  ))}
+                </ul>
+              </div>
+            </a>
+          ))}
 
-
-      <div class="cards">
-        
-
-      </div>
-
-
+        </div>
+        <div class="text-right mt-16">
+          <a href="/blog/" class="viewAll">
+            All Posts &rarr;
+          </a>
+        </div>
+      )}
     </div>
-
   </div>
-
 </section>
 
 <style lang="stylus">
   .cards
-    @apply max-w-5xl mx-auto
-    > * + * 
-      @apply mt-10 
+    @apply max-w-5xl mx-auto grid grid-cols-1 gap-10
+    @media (min-width: 768px)
+      @apply grid-cols-3
 
   .card
-    @apply grid gap-10 
-    grid-template-columns: 35% 1fr
+    @apply grid gap-10 transition-opacity duration-300
+    grid-template-columns: 1fr
+    &:hover
+      @apply opacity-80
+    @media (max-width: 768px)
+      @apply grid-cols-1
 
   .cardImage
-    @apply transition-opacity duration-300 relative
+    @apply transition-opacity duration-300 relative overflow-hidden
+    aspect-ratio: 4 / 3
     img
       @apply w-full h-full object-cover
-    span
-      @apply bg-primary p-2 w-full block text-center text-white absolute bottom-0 left-0 text-sm font-bold
 
   .cardMeta
-    > * + * 
-      @apply mt-8
+    > * + *
+      @apply mt-4
     &Title
       @apply text-3xl font-extrabold
+    &Date
+      @apply text-sm text-gray-400
     &Description
-      line-height 1.8
+      line-height: 1.8
     &Tech
-      @apply flex flex-wrap gap-2
+      @apply flex flex-wrap gap-1
       li
-        @apply bg-bk text-white px-2 py-1 text-sm font-bold
+        @apply bg-blue text-white px-2 py-1 text-sm font-bold
 
+  .viewAll
+    @apply text-white transition-opacity border border-white px-4 py-2
+    &:hover
+      @apply opacity-80
 </style>

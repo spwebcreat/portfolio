@@ -1,0 +1,47 @@
+---
+import '../styles/global.styl'
+import BaseHead from '../components/BaseHead.astro'
+import Header from '../components/Header/index.astro'
+import Footer from '../components/Layouts/Footer.astro'
+
+interface Props {
+  title: string;
+  description: string;
+  ogImage?: string;
+  ogType?: 'website' | 'article';
+  publishedTime?: string;
+}
+const { title, description, ogImage, ogType, publishedTime } = Astro.props;
+---
+
+<!doctype html>
+<html lang="ja">
+  <head>
+    <BaseHead
+      title={`${title} | SP WEBCREAT.`}
+      description={description}
+      ogImage={ogImage}
+      ogType={ogType}
+      publishedTime={publishedTime}
+    />
+  </head>
+  <body class="blog-body">
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-T2ZR3LF"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
+    <Header />
+    <slot />
+    <Footer />
+  </body>
+</html>
+
+<style lang="stylus">
+  .blog-body
+    @apply min-h-screen
+    background #000000 url('../assets/img/mainvisual-bg.webp') no-repeat center center/cover
+    
+    :global(header)
+      opacity 1
+      translate 0 0
+</style>

@@ -1,14 +1,13 @@
 ---
 import Logo from '../Logo/index.astro'
-
+const path = Astro.url.pathname;
 const navItems = [
   {name:'About',href:'/#about'},
   {name:'Portfolios',href:'/#portfolios'},
-  // {name:'Blog',href:'/#blog'},
-  // {name:'Contact',href:'/contact'}
+  {name:'Blog',href:'/blog/'},
 ]
 ---
-<header class="flex justify-between items-center px-10 py-4">
+<header class="flex justify-between items-center px-10 py-4" data-path={path === '/' ? 'home' : 'other'}>
   <h1>
     <Logo />
   </h1>
@@ -23,7 +22,7 @@ const navItems = [
 
 <style lang="stylus">
   header
-    background-color: var(--bk)
+    background-color: transparent
     color: var(--white)
     position: sticky
     top: 0
@@ -36,6 +35,8 @@ const navItems = [
     &.fixed
       opacity 1
       translate: 0 0
+    &[data-path="home"]
+      background-color: transparent
 </style>
 
 

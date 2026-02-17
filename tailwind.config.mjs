@@ -16,6 +16,9 @@ export default {
 				white: {
 					DEFAULT: 'var(--white)',
 				},
+				blue: {
+					DEFAULT: 'var(--blue)',
+				},
 			},
 		},
 	},

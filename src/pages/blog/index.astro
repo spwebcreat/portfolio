@@ -1,0 +1,127 @@
+---
+import { Image } from 'astro:assets'
+import BlogLayout from '../../layouts/BlogLayout.astro'
+import { getPublishedPosts, formatDate } from '../../lib/blog'
+import NoImage from '../../assets/img/noimage.jpg'
+
+const posts = await getPublishedPosts();
+
+const categoryLabels: Record<string, string> = {
+  tech: 'Tech',
+  works: 'Works',
+};
+
+const categoryColors: Record<string, string> = {
+  tech: 'border-sky-400 text-sky-400',
+  works: 'border-primary text-primary',
+};
+---
+
+<BlogLayout
+  title="Blog"
+  description="SP WEBCREAT.のブログ。Web制作やエンジニアリングに関する技術記事を発信します。"
+>
+  <main class="blogList">
+    <section class="sec">
+      <div class="content">
+        <div class="contentTitle">
+          <h2 class="title">BLOG</h2>
+        </div>
+        <div class="contentBody">
+          <div class="cards">
+            {posts.length === 0 && (
+              <div class="text-center text-2xl font-bold">記事の準備中です...</div>
+            )}
+            {posts.map((post) => (
+              <a href={`/blog/${post.slug}/`} class="card">
+                {post.data.heroImage ? (
+                  <div class="cardImage">
+                    <Image src={post.data.heroImage} alt={post.data.title} />
+                  </div>
+                ) : (
+                  <div class="cardImage">
+                    <Image src={NoImage} alt={post.data.title} />
+                  </div>
+                )}
+                <div class="cardMeta">
+                  <div class="cardMetaTitle">{post.data.title}</div>
+                  <div class="cardMetaInfo">
+                    <time datetime={post.data.pubDate.toISOString()}>
+                      {formatDate(post.data.pubDate)}
+                    </time>
+                    <span class:list={[
+                      'categoryBadge',
+                      categoryColors[post.data.category]
+                    ]}>
+                      {categoryLabels[post.data.category]}
+                    </span>
+                  </div>
+                  <div class="cardMetaTags">
+                    {post.data.tags.map((tag) => (
+                      <span class="tag">{tag}</span>
+                    ))}
+                  </div>
+                  <div class="cardMetaDescription">{post.data.description}</div>
+                  {post.data.draft && (
+                    <span class="draftBadge">Draft</span>
+                  )}
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</BlogLayout>
+
+<style lang="stylus">
+  .blogList
+    @apply pt-20 min-h-screen
+    .sec
+      @apply border-b border-none
+
+  .cards
+    @apply max-w-5xl mx-auto
+    > * + *
+      @apply mt-10
+
+  .card
+    @apply grid gap-10 transition-opacity duration-300
+    grid-template-columns: 35% 1fr
+    &:hover
+      @apply opacity-80
+    @media (max-width: 768px)
+      @apply grid-cols-1
+
+  .cardImage
+    @apply relative overflow-hidden
+    aspect-ratio: 4 / 3
+    img
+      @apply w-full h-full object-cover
+
+  .cardMeta
+    > * + *
+      @apply mt-4
+    &Title
+      @apply text-2xl font-extrabold
+    &Info
+      @apply flex items-center gap-3 text-sm text-gray-400
+    &Tags
+      @apply flex flex-wrap gap-1
+    &Description
+      line-height: 1.8
+      @apply text-gray-300
+
+  .categoryBadge
+    @apply inline-flex items-center text-xs font-bold px-3 py-1 border
+
+  .tag
+    @apply text-white px-2 py-1 text-xs border border-white 
+    &::before 
+      content: "#"
+      @apply mr-1
+
+  .draftBadge
+    @apply text-xs font-bold bg-yellow-600 text-white px-2 py-1 rounded inline-block
+</style>

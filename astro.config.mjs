@@ -1,14 +1,17 @@
 import { defineConfig } from 'astro/config';
 import tailwind from "@astrojs/tailwind";
 import react from "@astrojs/react";
+import mdx from "@astrojs/mdx";
 import lenis from "astro-lenis";
 import icon from "astro-icon";
 import partytown from '@astrojs/partytown';
 // https://astro.build/config
 export default defineConfig({
+  site: 'https://www.sp-webcreat.pro',
   integrations: [
-    tailwind(), 
-    react(), 
+    tailwind(),
+    react(),
+    mdx(),
     lenis(),
     icon({
       include: {

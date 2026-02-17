@@ -27,6 +27,7 @@
 
 - Stylus 内で Tailwind の `@apply` を使用
 - Stylus では `/` が除算として解釈されるため、`aspect-ratio` 等は CSS ネイティブプロパティで記述する（`@apply aspect-[4/3]` は使用不可）
+- Stylus では `:` がプロパティ区切りとして解釈されるため、`@apply hover:opacity-80` 等のコロン付き Tailwind ユーティリティは使用不可。代わりに `&:hover` + `@apply opacity-80` を使用する
 - カラー変数: `--bk: #151515`, `--white: #FDFDFD`, `--gray: #ECECEC`, `--primary: #E50035`
 - `bg-bk`, `bg-primary`, `text-primary` 等の Tailwind カスタムカラーが使用可能
 
@@ -162,41 +163,101 @@
 
 | Phase | データソース | 状態 |
 |-------|-------------|------|
-| Phase 1 | Markdown (Astro Content Collections) | 未着手 |
+| Phase 1 | Markdown (Astro Content Collections) | 構築済み |
 | Phase 2 | ヘッドレス CMS (未選定) | Phase 1 完了後に検討 |
 
 ### コンテンツ方針
 
-- **技術記事**: 開発Tips、技術検証、学習記録
-- **制作ノウハウ**: デザイン・コーディングの制作過程、クライアントワークの知見
+- **技術記事** (`category: tech`): 開発Tips、技術検証、学習記録
+- **制作ノウハウ** (`category: works`): デザイン・コーディングの制作過程、クライアントワークの知見
 
 ### ページ構成
 
-- トップページ (`index.astro`): 最新記事を数件カード表示
+- トップページ (`index.astro`): 最新3件をカード表示
 - ブログ一覧: `/blog` で全記事一覧
 - 詳細ページ: `/blog/[slug]` で記事本文表示
 
-### Phase 1 のデータ構造
+### 記事の投稿手順
 
-記事は `src/content/blog/*.md` に配置し、Content Collections で管理:
+#### 1. MD ファイルを作成
+
+`src/content/blog/` に `.md` ファイルを追加する。ファイル名がそのまま URL のスラッグになる。
+
+```
+src/content/blog/my-new-post.md  →  /blog/my-new-post/
+```
+
+#### 2. frontmatter を記述
 
 ```yaml
-# frontmatter schema
-title: string          # 記事タイトル
-description: string    # 記事の概要
-pubDate: Date          # 公開日
-updatedDate?: Date     # 更新日（optional）
-category: 'tech' | 'works'  # 技術記事 or 制作ノウハウ
-tags: string[]         # 技術タグ
-image?: string         # OGP・カード用画像（optional）
-draft: boolean         # true なら非公開
+---
+title: "記事タイトル"
+description: "記事の概要（一覧カード・OGPに表示される）"
+pubDate: "2026-02-17"
+category: "tech"              # "tech" or "works"
+tags: ["Astro", "React"]      # 任意のタグ
+draft: false                  # true にすると本番では非表示（開発時は表示）
+heroImage: "../../assets/img/blog/my-hero.jpg"  # optional: カード・詳細ページのヒーロー画像
+# updatedDate: "2026-02-18"   # optional: 更新日
+# ogImage: "/img/blog/og.jpg" # optional: OGP専用画像（heroImageと別にしたい場合）
+---
 ```
+
+#### 3. 本文を Markdown で記述
+
+通常の Markdown 記法がすべて使える（見出し、リスト、コードブロック、テーブル等）。
+
+### 記事内の画像
+
+`public/img/blog/` に画像を配置し、絶対パスで参照する:
+
+```markdown
+![スクリーンショット](/img/blog/screenshot.jpg)
+```
+
+> **注意**: 本文内の `![](...)` では Astro の画像最適化（WebP変換等）は効かない。
+> `heroImage` は `src/assets/` の相対パスで指定でき、自動最適化される。
+
+### 記事内の動画
+
+YouTube / Vimeo はそのまま HTML を記述:
+
+```markdown
+<iframe width="560" height="315" src="https://www.youtube.com/embed/VIDEO_ID" frameborder="0" allowfullscreen></iframe>
+```
+
+自前の動画ファイルは `public/video/` に配置:
+
+```markdown
+<video src="/video/demo.mp4" controls muted playsinline></video>
+```
+
+### ファイル配置まとめ
+
+| 用途 | 配置先 | 参照方法 |
+|------|--------|---------|
+| ヒーロー画像 | `src/assets/img/blog/` | frontmatter の `heroImage` に相対パス |
+| 記事本文の画像 | `public/img/blog/` | `![alt](/img/blog/file.jpg)` |
+| 動画ファイル | `public/video/` | `<video src="/video/file.mp4">` |
+
+### Frontmatter スキーマ
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|------|------|------|
+| `title` | string | Yes | 記事タイトル |
+| `description` | string | Yes | 記事の概要 |
+| `pubDate` | Date | Yes | 公開日 |
+| `updatedDate` | Date | No | 更新日 |
+| `category` | `'tech'` \| `'works'` | Yes | カテゴリ |
+| `tags` | string[] | No | タグ（デフォルト: `[]`） |
+| `draft` | boolean | No | 下書きフラグ（デフォルト: `false`） |
+| `heroImage` | image | No | ヒーロー画像（`src/assets/` からの相対パス） |
+| `ogImage` | string | No | OGP専用画像（`public/` からの絶対パス） |
 
 ### 移行時の注意点
 
 - Phase 2 移行時、URL 構造 (`/blog/[slug]`) は維持すること
-- SEO（OGP, メタタグ）は Phase 1 から対応
-- `src/wp/wordpress.tsx` は Phase 1 開始時に削除を検討
+- SEO（OGP, メタタグ）は Phase 1 から対応済み
 
 ---
 

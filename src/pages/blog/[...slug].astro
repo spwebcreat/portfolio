@@ -1,0 +1,168 @@
+---
+import type { GetStaticPaths, InferGetStaticPropsType } from 'astro'
+import { Image } from 'astro:assets'
+import { getCollection } from 'astro:content'
+import BlogLayout from '../../layouts/BlogLayout.astro'
+import { formatDate } from '../../lib/blog'
+
+export const getStaticPaths = (async () => {
+  const posts = await getCollection('blog', ({ data }) => {
+    return import.meta.env.PROD ? data.draft !== true : true;
+  });
+
+  return posts.map((post) => ({
+    params: { slug: post.slug },
+    props: { post },
+  }));
+}) satisfies GetStaticPaths;
+
+type Props = InferGetStaticPropsType<typeof getStaticPaths>;
+
+const { post } = Astro.props as Props;
+const { Content } = await post.render();
+
+const categoryLabels: Record<string, string> = {
+  tech: 'Tech',
+  works: 'Works',
+};
+---
+
+<BlogLayout
+  title={post.data.title}
+  description={post.data.description}
+  ogImage={post.data.ogImage ?? post.data.heroImage?.src}
+  ogType="article"
+  publishedTime={post.data.pubDate.toISOString()}
+>
+  <main class="blogDetail">
+    <article class="article">
+      {post.data.heroImage && (
+        <div class="heroImage">
+          <Image src={post.data.heroImage} alt={post.data.title} />
+        </div>
+      )}
+      <div class="articleHeader">
+        <div class="articleMeta">
+          <time datetime={post.data.pubDate.toISOString()}>
+            {formatDate(post.data.pubDate)}
+          </time>
+          {post.data.updatedDate && (
+            <span class="updatedDate">
+              (更新: {formatDate(post.data.updatedDate)})
+            </span>
+          )}
+          <span class:list={[
+            'categoryBadge'
+          ]}>
+            {categoryLabels[post.data.category]}
+          </span>
+        </div>
+        {post.data.tags.length > 0 && (
+          <div class="articleTags">
+            {post.data.tags.map((tag) => (
+              <span class="tag">{tag}</span>
+            ))}
+          </div>
+        )}
+        <h1 class="articleTitle">{post.data.title}</h1>
+      </div>
+      <div class="prose">
+        <Content />
+      </div>
+      <div class="articleFooter">
+        <a href="/blog/" class="backLink">
+          ← ブログ一覧に戻る
+        </a>
+      </div>
+    </article>
+  </main>
+</BlogLayout>
+
+<style lang="stylus">
+  .blogDetail
+    @apply pt-20 min-h-screen
+
+  .article
+    @apply max-w-3xl mx-auto px-6 py-16
+
+  .heroImage
+    @apply w-full overflow-hidden rounded-lg mb-10
+    aspect-ratio: 16 / 9
+    img
+      @apply w-full h-full object-cover
+
+  .articleHeader
+    @apply mb-12
+
+  .articleMeta
+    @apply flex items-center gap-3 text-sm text-gray-400 mb-4
+
+  .articleTitle
+    @apply text-3xl font-extrabold leading-tight mb-4 mt-4
+    @media (min-width: 768px)
+      @apply text-4xl
+
+  .articleTags
+    @apply flex flex-wrap gap-1
+
+  .categoryBadge
+    @apply inline-flex items-center text-xs font-bold px-3 py-1  border border-blue text-blue
+
+  .tag
+    @apply text-white px-2 py-1 text-xs border border-white
+    &::before 
+      content: "#"
+      @apply mr-1
+
+  .updatedDate
+    @apply text-gray-500
+
+  /* Prose styles for markdown content */
+  .prose
+    line-height: 2
+    :global(h2)
+      @apply text-2xl font-extrabold mt-12 mb-6 pb-2 border-b border-gray-500
+    :global(h3)
+      @apply text-xl font-bold mt-8 mb-4
+    :global(h4)
+      @apply text-lg font-bold mt-6 mb-3
+    :global(p)
+      @apply mb-6
+    :global(a)
+      @apply text-primary underline
+      &:hover
+        @apply opacity-80
+    :global(ul)
+      @apply list-disc pl-6 mb-6
+    :global(ol)
+      @apply list-decimal pl-6 mb-6
+    :global(li)
+      @apply mb-2
+    :global(blockquote)
+      @apply border-l-4 border-primary pl-4 italic text-gray-300 my-6
+    :global(code)
+      @apply bg-gray-800 text-gray-200 rounded text-sm font-mono
+      padding 2px 6px
+    :global(pre)
+      @apply bg-gray-900 rounded-lg p-4 overflow-x-auto mb-6
+      :global(code)
+        @apply bg-transparent p-0
+    :global(img)
+      @apply rounded-lg max-w-full h-auto my-6
+    :global(hr)
+      @apply border-gray-500 my-8
+    :global(table)
+      @apply w-full border-collapse mb-6
+      :global(th)
+        @apply bg-gray-800 text-left px-4 py-2 border border-gray-600 font-bold
+      :global(td)
+        @apply px-4 py-2 border border-gray-700
+
+  .articleFooter
+    @apply mt-16 pt-8 border-t border-gray-500
+
+  .backLink
+    @apply text-white  transition-opacity text-sm
+    &:hover
+      @apply opacity-80
+</style>
