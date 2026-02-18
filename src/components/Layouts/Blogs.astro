@@ -5,6 +5,18 @@ import NoImage from '../../assets/img/noimage.jpg'
 
 const posts = await getLatestPosts(3);
 const hasPosts = posts.length > 0;
+
+const categoryLabels: Record<string, string> = {
+  tech: 'Tech',
+  knowledge: 'Knowledge',
+  diary: 'Diary',
+};
+
+const categoryColors: Record<string, string> = {
+  tech: 'border-sky-400 text-sky-400',
+  knowledge: 'border-primary text-primary',
+  diary: 'border-emerald-400 text-emerald-400',
+};
 ---
 
 <section class="sec blogs">
@@ -29,17 +41,25 @@ const hasPosts = posts.length > 0;
                 </div>
               )}
               <div class="cardMeta">
-                <div class="cardMetaDate">
+                <div class="cardMetaInfo">
                   <time datetime={post.data.pubDate.toISOString()}>
                     {formatDate(post.data.pubDate)}
                   </time>
+                  <span class:list={[
+                    'categoryBadge',
+                    categoryColors[post.data.category]
+                  ]}>
+                    {categoryLabels[post.data.category]}
+                  </span>
                 </div>
                 <div class="cardMetaTitle">{post.data.title}</div>
-                <ul class="cardMetaTech">
-                  {post.data.tags.map((tag) => (
-                    <li>{tag}</li>
-                  ))}
-                </ul>
+                {post.data.tags.length > 0 && (
+                  <div class="cardMetaTags">
+                    {post.data.tags.map((tag) => (
+                      <span class="tag">{tag}</span>
+                    ))}
+                  </div>
+                )}
               </div>
             </a>
           ))}
@@ -79,15 +99,20 @@ const hasPosts = posts.length > 0;
     > * + *
       @apply mt-4
     &Title
-      @apply text-3xl font-extrabold
-    &Date
-      @apply text-sm text-gray-400
-    &Description
-      line-height: 1.8
-    &Tech
+      @apply text-lg font-extrabold
+    &Info
+      @apply flex items-center gap-3 text-sm text-gray-400
+    &Tags
       @apply flex flex-wrap gap-1
-      li
-        @apply bg-blue text-white px-2 py-1 text-sm font-bold
+
+  .categoryBadge
+    @apply inline-flex items-center text-xs font-bold px-3 py-1 border
+
+  .tag
+    @apply text-white px-2 py-1 text-xs border border-white
+    &::before
+      content: "#"
+      @apply mr-1
 
   .viewAll
     @apply text-white transition-opacity border border-white px-4 py-2

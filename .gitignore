@@ -25,3 +25,6 @@ pnpm-debug.log*
 
 # astro build output
 public/3dModels/
+
+# api key
+*_APIKEY.md

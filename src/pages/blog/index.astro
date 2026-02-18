@@ -8,12 +8,14 @@ const posts = await getPublishedPosts();
 
 const categoryLabels: Record<string, string> = {
   tech: 'Tech',
-  works: 'Works',
+  knowledge: 'Knowledge',
+  diary: 'Diary',
 };
 
 const categoryColors: Record<string, string> = {
   tech: 'border-sky-400 text-sky-400',
-  works: 'border-primary text-primary',
+  knowledge: 'border-primary text-primary',
+  diary: 'border-emerald-400 text-emerald-400',
 };
 ---
 
@@ -56,11 +58,13 @@ const categoryColors: Record<string, string> = {
                       {categoryLabels[post.data.category]}
                     </span>
                   </div>
-                  <div class="cardMetaTags">
-                    {post.data.tags.map((tag) => (
-                      <span class="tag">{tag}</span>
-                    ))}
-                  </div>
+                  {post.data.tags.length > 0 && (
+                    <div class="cardMetaTags">
+                      {post.data.tags.map((tag) => (
+                        <span class="tag">{tag}</span>
+                      ))}
+                    </div>
+                  )}
                   <div class="cardMetaDescription">{post.data.description}</div>
                   {post.data.draft && (
                     <span class="draftBadge">Draft</span>
