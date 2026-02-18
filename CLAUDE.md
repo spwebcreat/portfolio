@@ -168,8 +168,9 @@
 
 ### コンテンツ方針
 
-- **技術記事** (`category: tech`): 開発Tips、技術検証、学習記録
-- **制作ノウハウ** (`category: works`): デザイン・コーディングの制作過程、クライアントワークの知見
+- **技術記事** (`category: tech`): 開発Tips、技術検証、学習記録 — バッジ: 水色
+- **制作ノウハウ** (`category: knowledge`): デザイン・コーディングの制作過程、クライアントワークの知見 — バッジ: 赤
+- **日常** (`category: diary`): 日常の出来事、雑記、ブログ運営 — バッジ: 緑
 
 ### ページ構成
 
@@ -194,7 +195,7 @@ src/content/blog/my-new-post.md  →  /blog/my-new-post/
 title: "記事タイトル"
 description: "記事の概要（一覧カード・OGPに表示される）"
 pubDate: "2026-02-17"
-category: "tech"              # "tech" or "works"
+category: "tech"              # "tech", "knowledge", or "diary"
 tags: ["Astro", "React"]      # 任意のタグ
 draft: false                  # true にすると本番では非表示（開発時は表示）
 heroImage: "../../assets/img/blog/my-hero.jpg"  # optional: カード・詳細ページのヒーロー画像
@@ -248,7 +249,7 @@ YouTube / Vimeo はそのまま HTML を記述:
 | `description` | string | Yes | 記事の概要 |
 | `pubDate` | Date | Yes | 公開日 |
 | `updatedDate` | Date | No | 更新日 |
-| `category` | `'tech'` \| `'works'` | Yes | カテゴリ |
+| `category` | `'tech'` \| `'knowledge'` \| `'diary'` | Yes | カテゴリ |
 | `tags` | string[] | No | タグ（デフォルト: `[]`） |
 | `draft` | boolean | No | 下書きフラグ（デフォルト: `false`） |
 | `heroImage` | image | No | ヒーロー画像（`src/assets/` からの相対パス） |
@@ -258,6 +259,35 @@ YouTube / Vimeo はそのまま HTML を記述:
 
 - Phase 2 移行時、URL 構造 (`/blog/[slug]`) は維持すること
 - SEO（OGP, メタタグ）は Phase 1 から対応済み
+
+---
+
+## サムネイル生成設定
+
+ブログ記事のサムネイル（heroImage）を Gemini API で自動生成する際のプロジェクト固有設定。
+
+### デフォルト値
+
+| 設定 | 値 | 説明 |
+|------|-----|------|
+| `model` | `gemini-2.5-flash-image` | 使用する Gemini モデル |
+| `style` | `minimal` | ビジュアルスタイル |
+| `aspect` | `4:3` | アスペクト比（カード表示に合わせる） |
+| `output_dir` | `src/assets/img/blog/` | 画像の格納先 |
+| `heroImage_path` | `../../assets/img/blog/{slug}.jpg` | frontmatter に記述する相対パス |
+
+### プロンプト指示
+
+- サイトのブランドカラーを使用: 背景 `#151515`、アクセント `#E50035`
+- `--keyword` で記事の内容を象徴する英語キーワードを指定し、大きく配置する（例: `"AI FILTER"`, `"ASTRO"`, `"SPEED UP"`）
+- キーワードは短く（1〜2語）、大きく目立つように。**英語のみ**（日本語はAI生成で崩れるため禁止）
+- テック系記事はデジタル・幾何学的な表現、制作ノウハウ系は温かみのあるデザイン寄り
+
+### 生成後の処理
+
+1. 画像を `src/assets/img/blog/{slug}.jpg` に保存
+2. 記事の frontmatter の `heroImage` を `"../../assets/img/blog/{slug}.jpg"` に設定
+3. 生成された画像をユーザーに表示して確認
 
 ---
 
