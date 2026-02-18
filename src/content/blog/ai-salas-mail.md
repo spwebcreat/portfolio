@@ -4,7 +4,7 @@ description: "月次レポートの集計を歪ませていた営業メール。
 pubDate: "2026-02-17"
 category: "tech"
 tags: ["AI", "GAS"]
-draft: true
+draft: false
 heroImage: "../../assets/img/blog/ai-salas-mail.jpg"
 ---
 
