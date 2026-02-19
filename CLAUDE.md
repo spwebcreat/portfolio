@@ -270,7 +270,7 @@ YouTube / Vimeo はそのまま HTML を記述:
 
 | 設定 | 値 | 説明 |
 |------|-----|------|
-| `model` | `gemini-2.5-flash-image` | 使用する Gemini モデル |
+| `model` | `gemini-3-pro-image-preview` | 使用する Gemini モデル |
 | `style` | `minimal` | ビジュアルスタイル |
 | `aspect` | `4:3` | アスペクト比（カード表示に合わせる） |
 | `output_dir` | `src/assets/img/blog/` | 画像の格納先 |
