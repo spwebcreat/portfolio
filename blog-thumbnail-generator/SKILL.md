@@ -5,7 +5,7 @@ description: Generate blog thumbnail/hero images using the Gemini API. Use when 
 
 # Blog Thumbnail Generator
 
-Generate blog hero images from article metadata using the Gemini API's image generation models.
+Generate blog hero images from article metadata using the Gemini API's image generation models. Automatically detects article mood from content to apply matching color palettes.
 
 ## Requirements
 
@@ -17,13 +17,36 @@ Generate blog hero images from article metadata using the Gemini API's image gen
 **Before running, check the project's `CLAUDE.md` for a `サムネイル生成設定` section.** If present, use those values as defaults instead of asking the user. Typical project-level overrides:
 
 - `aspect`: Fixed aspect ratio (e.g., `4:3`)
-- `style`: Default visual style
+- `style`: Default visual style (default: `auto`)
+- `mood`: Default mood (default: `auto`)
 - `model`: Preferred Gemini model
 - `output_dir`: Image output directory
 - `heroImage_path`: Frontmatter path template for heroImage
-- `prompt_instructions`: Additional prompt guidance for visual consistency
 
 If no project-level config exists, fall back to the defaults below and ask the user.
+
+## Mood-Based Color Palettes
+
+Colors are automatically selected based on the article's **mood/tone**, detected from title, description, and tags:
+
+| Mood | Colors | Use Case |
+|------|--------|----------|
+| `educational` | Blue / Cyan / Indigo | 解説・ハウツー・技術記事 |
+| `urgent` | Red / Orange | 注意喚起・速報・重要系 |
+| `inspirational` | Green / Lime | やる気・成長・挑戦系 |
+| `professional` | Slate / Indigo | ビジネス・仕事・キャリア系 |
+| `friendly` | Amber / Rose | 雑談・日常・エンタメ系 |
+| `creative` | Red / Amber | デザイン・制作・クリエイティブ系 |
+
+**Auto-detection priority**: Title/description keywords → Tag hints → Category fallback.
+
+Override with `--mood educational` etc. if auto-detection is wrong.
+
+## Visual Style
+
+The image style is **realistic and content-driven**. The script reads the article's title, description, and tags to generate a visual scene that directly represents the article's subject matter — like a cinematic photograph or photorealistic 3D render. Viewers should be able to guess the article's topic just from the image.
+
+The mood palette is applied as **cinematic lighting and atmosphere**, not as flat color fills.
 
 ## Workflow
 
@@ -35,27 +58,22 @@ Collect from the user or extract from an existing blog post file:
 - **slug** (required): URL slug / filename
 - **description**: Article summary
 - **tags**: Comma-separated tags
-- **category**: `tech` or `works`
+- **category**: `tech`, `knowledge`, or `diary`
 
 ### 2. Resolve settings
 
 Apply in order: project `CLAUDE.md` overrides → user input → skill defaults.
 
-**Style options:**
-
-| Style | Description |
-|-------|-------------|
-| `minimal` | Clean dark background with geometric accents |
-| `gradient` | Deep dark gradient with vibrant accents |
-| `abstract` | Bold shapes, flowing forms, geometric patterns |
-| `tech` | Circuit-like patterns, digital aesthetics |
+**Mood is `auto` by default** — the script automatically detects the article's tone and selects a matching color palette. Visual subject matter is always derived from the article content. You only need `--mood` if the auto-detected color mood is wrong.
 
 **Model options:**
 
 | Model | Characteristics |
 |-------|----------------|
-| `gemini-2.5-flash-image` | Fast, cost-effective |
+| `gemini-2.5-flash-image` | Fast, cost-effective (fallback) |
 | `gemini-3-pro-image-preview` | Higher quality, more detailed (default) |
+
+**Auto-retry & fallback:** The script automatically retries the pro model up to 3 times (with increasing wait). If all 3 attempts fail, it falls back to the flash model. No manual `--model` switching needed.
 
 ### 3. Generate the image
 
@@ -70,8 +88,8 @@ python3 ~/.claude/skills/blog-thumbnail-generator/scripts/generate_thumbnail.py 
   --description "記事の説明" \
   --tags "tag1,tag2" \
   --category "tech" \
-  --style "minimal" \
-  --model "gemini-2.5-flash-image"
+  --mood "auto" \
+  --model "gemini-3-pro-image-preview"
 ```
 
 ### 4. Update frontmatter
@@ -80,4 +98,6 @@ If the blog post file exists, set `heroImage` to the path specified by project c
 
 ### 5. Verify the result
 
-Read the generated image file to show the user. If unsatisfactory, re-run with different style or model.
+Read the generated image file to show the user. If unsatisfactory, try:
+- Different mood: `--mood creative`, `--mood urgent`, etc.
+- Different model: `--model gemini-2.5-flash-image`
