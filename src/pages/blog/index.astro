@@ -1,22 +1,11 @@
 ---
 import { Image } from 'astro:assets'
 import BlogLayout from '../../layouts/BlogLayout.astro'
-import { getPublishedPosts, formatDate } from '../../lib/blog'
+import { getPublishedPosts, formatDate, categoryLabels, categoryColors } from '../../lib/blog'
 import NoImage from '../../assets/img/noimage.jpg'
 
 const posts = await getPublishedPosts();
-
-const categoryLabels: Record<string, string> = {
-  tech: 'Tech',
-  knowledge: 'Knowledge',
-  diary: 'Diary',
-};
-
-const categoryColors: Record<string, string> = {
-  tech: 'border-sky-400 text-sky-400',
-  knowledge: 'border-primary text-primary',
-  diary: 'border-emerald-400 text-emerald-400',
-};
+const allTags = [...new Set(posts.flatMap(p => p.data.tags))].sort();
 ---
 
 <BlogLayout
@@ -30,12 +19,43 @@ const categoryColors: Record<string, string> = {
           <h2 class="title">BLOG</h2>
         </div>
         <div class="contentBody">
-          <div class="cards">
+          <div class="filters">
+            <div class="filterGroup">
+              <span class="filterLabel">Category</span>
+              <div class="filterButtons">
+                <button class="filterBtn filterBtn--category active" data-category="all">All</button>
+                {Object.entries(categoryLabels).map(([key, label]) => (
+                  <button class={`filterBtn filterBtn--category filterBtn--${key}`} data-category={key}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {allTags.length > 0 && (
+              <div class="filterGroup">
+                <span class="filterLabel">Tag</span>
+                <div class="filterButtons">
+                  <button class="filterBtn filterBtn--tag active" data-tag="all">All</button>
+                  {allTags.map((tag) => (
+                    <button class="filterBtn filterBtn--tag" data-tag={tag}>
+                      #{tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <div class="cards" id="blogCards">
             {posts.length === 0 && (
               <div class="text-center text-2xl font-bold">記事の準備中です...</div>
             )}
             {posts.map((post) => (
-              <a href={`/blog/${post.slug}/`} class="card">
+              <a
+                href={`/blog/${post.slug}/`}
+                class="card"
+                data-category={post.data.category}
+                data-tags={post.data.tags.join(',')}
+              >
                 {post.data.heroImage ? (
                   <div class="cardImage">
                     <Image src={post.data.heroImage} alt={post.data.title} />
@@ -73,17 +93,102 @@ const categoryColors: Record<string, string> = {
               </a>
             ))}
           </div>
+          <div class="noResults" id="noResults" style="display: none;">
+            該当する記事が見つかりません
+          </div>
         </div>
       </div>
     </section>
   </main>
 </BlogLayout>
 
+<script>
+  const categoryButtons = document.querySelectorAll<HTMLButtonElement>('.filterBtn--category');
+  const tagButtons = document.querySelectorAll<HTMLButtonElement>('.filterBtn--tag');
+  const cards = document.querySelectorAll<HTMLElement>('#blogCards .card');
+  const noResults = document.getElementById('noResults');
+
+  let activeCategory = 'all';
+  let activeTag = 'all';
+
+  function filterCards() {
+    let visibleCount = 0;
+
+    cards.forEach((card) => {
+      const cardCategory = card.dataset.category || '';
+      const cardTags = card.dataset.tags ? card.dataset.tags.split(',') : [];
+
+      const categoryMatch = activeCategory === 'all' || cardCategory === activeCategory;
+      const tagMatch = activeTag === 'all' || cardTags.includes(activeTag);
+
+      if (categoryMatch && tagMatch) {
+        card.style.display = '';
+        visibleCount++;
+      } else {
+        card.style.display = 'none';
+      }
+    });
+
+    if (noResults) {
+      noResults.style.display = visibleCount === 0 ? '' : 'none';
+    }
+  }
+
+  categoryButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      activeCategory = btn.dataset.category || 'all';
+      categoryButtons.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      filterCards();
+    });
+  });
+
+  tagButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      activeTag = btn.dataset.tag || 'all';
+      tagButtons.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      filterCards();
+    });
+  });
+</script>
+
 <style lang="stylus">
   .blogList
     @apply pt-20 min-h-screen
     .sec
       @apply border-b border-none
+
+  .filters
+    @apply max-w-5xl mx-auto mb-12
+
+  .filterGroup
+    @apply mb-6
+
+  .filterLabel
+    @apply text-sm text-gray-400 block mb-3
+
+  .filterButtons
+    @apply flex flex-wrap gap-2
+
+  .filterBtn
+    @apply text-sm px-4 py-2 border border-gray-500 text-gray-400 bg-transparent cursor-pointer transition-all duration-200
+    &:hover
+      @apply border-white text-white
+    &.active
+      @apply border-white text-white
+
+  .filterBtn--tech.active
+    @apply border-sky-400 text-sky-400
+
+  .filterBtn--knowledge.active
+    @apply border-primary text-primary
+
+  .filterBtn--diary.active
+    @apply border-emerald-400 text-emerald-400
+
+  .noResults
+    @apply max-w-5xl mx-auto text-center text-gray-400 text-lg py-16
 
   .cards
     @apply max-w-5xl mx-auto
@@ -121,8 +226,8 @@ const categoryColors: Record<string, string> = {
     @apply inline-flex items-center text-xs font-bold px-3 py-1 border
 
   .tag
-    @apply text-white px-2 py-1 text-xs border border-white 
-    &::before 
+    @apply text-white px-2 py-1 text-xs border border-white
+    &::before
       content: "#"
       @apply mr-1
 

@@ -3,35 +3,36 @@ import type { GetStaticPaths, InferGetStaticPropsType } from 'astro'
 import { Image } from 'astro:assets'
 import { getCollection } from 'astro:content'
 import BlogLayout from '../../layouts/BlogLayout.astro'
-import { formatDate } from '../../lib/blog'
+import { formatDate, categoryLabels, categoryColors } from '../../lib/blog'
 
 export const getStaticPaths = (async () => {
   const posts = await getCollection('blog', ({ data }) => {
     return import.meta.env.PROD ? data.draft !== true : true;
   });
 
-  return posts.map((post) => ({
-    params: { slug: post.slug },
-    props: { post },
-  }));
+  const sorted = posts.sort(
+    (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+  );
+
+  return sorted.map((post, index) => {
+    const prev = index < sorted.length - 1
+      ? { slug: sorted[index + 1].slug, title: sorted[index + 1].data.title }
+      : null;
+    const next = index > 0
+      ? { slug: sorted[index - 1].slug, title: sorted[index - 1].data.title }
+      : null;
+
+    return {
+      params: { slug: post.slug },
+      props: { post, prev, next },
+    };
+  });
 }) satisfies GetStaticPaths;
 
 type Props = InferGetStaticPropsType<typeof getStaticPaths>;
 
-const { post } = Astro.props as Props;
+const { post, prev, next } = Astro.props as Props;
 const { Content } = await post.render();
-
-const categoryLabels: Record<string, string> = {
-  tech: 'Tech',
-  knowledge: 'Knowledge',
-  diary: 'Diary',
-};
-
-const categoryColors: Record<string, string> = {
-  tech: 'border-sky-400 text-sky-400',
-  knowledge: 'border-primary text-primary',
-  diary: 'border-emerald-400 text-emerald-400',
-};
 ---
 
 <BlogLayout
@@ -82,6 +83,26 @@ const categoryColors: Record<string, string> = {
           ← ブログ一覧に戻る
         </a>
       </div>
+      {(prev || next) && (
+        <nav class="postNav">
+          {prev ? (
+            <a href={`/blog/${prev.slug}/`} class="postNavLink postNavPrev">
+              <span class="postNavLabel">← 前の記事</span>
+              <span class="postNavTitle">{prev.title}</span>
+            </a>
+          ) : (
+            <div />
+          )}
+          {next ? (
+            <a href={`/blog/${next.slug}/`} class="postNavLink postNavNext">
+              <span class="postNavLabel">次の記事 →</span>
+              <span class="postNavTitle">{next.title}</span>
+            </a>
+          ) : (
+            <div />
+          )}
+        </nav>
+      )}
     </article>
   </main>
 </BlogLayout>
@@ -118,7 +139,7 @@ const categoryColors: Record<string, string> = {
 
   .tag
     @apply text-white px-2 py-1 text-xs border border-white
-    &::before 
+    &::before
       content: "#"
       @apply mr-1
 
@@ -173,4 +194,26 @@ const categoryColors: Record<string, string> = {
     @apply text-white  transition-opacity text-sm
     &:hover
       @apply opacity-80
+
+  .postNav
+    @apply grid grid-cols-2 gap-6 mt-8
+    @media (max-width: 768px)
+      @apply grid-cols-1
+
+  .postNavLink
+    @apply block p-4 border border-gray-500 rounded-lg transition-opacity duration-300
+    &:hover
+      @apply opacity-80
+
+  .postNavPrev
+    @apply text-left
+
+  .postNavNext
+    @apply text-right
+
+  .postNavLabel
+    @apply text-xs text-gray-400 block mb-1
+
+  .postNavTitle
+    @apply text-sm font-bold
 </style>

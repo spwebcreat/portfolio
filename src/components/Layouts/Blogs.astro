@@ -1,22 +1,10 @@
 ---
 import { Image } from 'astro:assets'
-import { getLatestPosts, formatDate } from '../../lib/blog'
+import { getLatestPosts, formatDate, categoryLabels, categoryColors } from '../../lib/blog'
 import NoImage from '../../assets/img/noimage.jpg'
 
-const posts = await getLatestPosts(3);
+const posts = await getLatestPosts(9);
 const hasPosts = posts.length > 0;
-
-const categoryLabels: Record<string, string> = {
-  tech: 'Tech',
-  knowledge: 'Knowledge',
-  diary: 'Diary',
-};
-
-const categoryColors: Record<string, string> = {
-  tech: 'border-sky-400 text-sky-400',
-  knowledge: 'border-primary text-primary',
-  diary: 'border-emerald-400 text-emerald-400',
-};
 ---
 
 <section class="sec blogs">
@@ -84,6 +72,8 @@ const categoryColors: Record<string, string> = {
   .card
     @apply grid gap-10 transition-opacity duration-300
     grid-template-columns: 1fr
+    grid-template-rows: subgrid
+    grid-row: span 2
     &:hover
       @apply opacity-80
     @media (max-width: 768px)
@@ -101,7 +91,7 @@ const categoryColors: Record<string, string> = {
     &Title
       @apply text-lg font-extrabold
     &Info
-      @apply flex items-center gap-3 text-sm text-gray-400
+      @apply flex items-center gap-3 text-sm
     &Tags
       @apply flex flex-wrap gap-1
 

@@ -1,5 +1,17 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
 
+export const categoryLabels: Record<string, string> = {
+  tech: 'Tech',
+  knowledge: 'Knowledge',
+  diary: 'Diary',
+};
+
+export const categoryColors: Record<string, string> = {
+  tech: 'border-sky-400 text-sky-400',
+  knowledge: 'border-primary text-primary',
+  diary: 'border-emerald-400 text-emerald-400',
+};
+
 /** Get all published (non-draft) blog posts, sorted by pubDate descending */
 export async function getPublishedPosts(): Promise<CollectionEntry<'blog'>[]> {
   const posts = await getCollection('blog', ({ data }) => {
