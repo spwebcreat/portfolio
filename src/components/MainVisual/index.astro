@@ -16,6 +16,11 @@ import mainVisualLogo from '@/assets/img/logo-mark.svg';
 
 	</section>
 
+  <script>
+    window.addEventListener('threemodel:reveal', () => {
+      document.querySelector('.mainvisualInfo')?.classList.add('is-show');
+    }, { once: true });
+  </script>
 
   <style lang="stylus">
     .mainvisual 
@@ -23,7 +28,10 @@ import mainVisualLogo from '@/assets/img/logo-mark.svg';
       height: 100vh
       height: 100svh
       position: relative
-      &Info 
+      &Info
+        opacity 0
+        transform translateY(20px)
+        transition opacity 1.5s ease-out, transform 1.5s ease-out
         color: var(--white)
         display grid
         place-items: center
@@ -34,6 +42,9 @@ import mainVisualLogo from '@/assets/img/logo-mark.svg';
         left: 50%
         z-index: 99
         text-shadow 0 0 10px rgba(0,0,0,0.5)
+        &.is-show
+          opacity 1
+          transform translateY(0)
     .sec 
       position: relative
       z-index: 99
