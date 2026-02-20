@@ -1,6 +1,6 @@
 ---
 title: "初投稿。"
-description: "SP WEB CREAT.ブログの最初の投稿です。技術記事や制作ノウハウを発信していきます。"
+description: "ブログの最初の投稿です。技術記事や制作ノウハウを発信していきます。"
 pubDate: "2026-02-17"
 category: "diary"
 # tags: [""]
