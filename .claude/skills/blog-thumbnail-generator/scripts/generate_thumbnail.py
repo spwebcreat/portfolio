@@ -308,12 +308,29 @@ FALLBACK_MODEL = "gemini-2.5-flash-image"
 MAX_RETRIES = 3
 
 
-def _call_gemini(api_key: str, prompt: str, model: str) -> dict | None:
+def _load_reference_image(path: str) -> dict | None:
+    """Load a reference image and return it as a Gemini API inline_data part."""
+    if not path or not os.path.exists(path):
+        return None
+    ext = os.path.splitext(path)[1].lower()
+    mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+    mime_type = mime_map.get(ext, "image/jpeg")
+    with open(path, "rb") as f:
+        data = base64.b64encode(f.read()).decode("utf-8")
+    return {"inlineData": {"mimeType": mime_type, "data": data}}
+
+
+def _call_gemini(api_key: str, prompt: str, model: str, reference_part: dict | None = None) -> dict | None:
     """Make a single Gemini API call. Returns parsed JSON or None on transient failure."""
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
+    parts = []
+    if reference_part:
+        parts.append(reference_part)
+    parts.append({"text": prompt})
+
     payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
+        "contents": [{"parts": parts}],
         "generationConfig": {
             "responseModalities": ["Text", "Image"],
         },
@@ -360,7 +377,7 @@ def _extract_image(result: dict) -> bytes | None:
     return None
 
 
-def generate_image(api_key: str, prompt: str, model: str, aspect: str) -> bytes:
+def generate_image(api_key: str, prompt: str, model: str, aspect: str, reference_part: dict | None = None) -> bytes:
     """Call Gemini API with retry + fallback.
 
     Tries the requested model up to MAX_RETRIES times. On repeated failure,
@@ -370,7 +387,7 @@ def generate_image(api_key: str, prompt: str, model: str, aspect: str) -> bytes:
     # --- Try primary model up to MAX_RETRIES times ---
     for attempt in range(1, MAX_RETRIES + 1):
         print(f"[Attempt {attempt}/{MAX_RETRIES}] Calling {model}...")
-        result = _call_gemini(api_key, prompt, model)
+        result = _call_gemini(api_key, prompt, model, reference_part)
         if result is not None:
             image_bytes = _extract_image(result)
             if image_bytes:
@@ -389,7 +406,7 @@ def generate_image(api_key: str, prompt: str, model: str, aspect: str) -> bytes:
     # --- Fallback to flash model ---
     if model != FALLBACK_MODEL:
         print(f"\n{model} failed {MAX_RETRIES} times. Falling back to {FALLBACK_MODEL}...", file=sys.stderr)
-        result = _call_gemini(api_key, prompt, FALLBACK_MODEL)
+        result = _call_gemini(api_key, prompt, FALLBACK_MODEL, reference_part)
         if result is not None:
             image_bytes = _extract_image(result)
             if image_bytes:
@@ -468,6 +485,11 @@ def main():
         default="",
         help="English keyword to display prominently in the image",
     )
+    parser.add_argument(
+        "--reference",
+        default="",
+        help="Path to a reference image to use as visual inspiration",
+    )
     args = parser.parse_args()
 
     api_key = os.environ.get("GEMINI_API_KEY")
@@ -500,10 +522,26 @@ def main():
     print(f"Category: {args.category}")
     print(f"Mood: {mood} ({palette['label']})")
     print(f"Palette: bg={palette['background']} primary={palette['primary']} secondary={palette['secondary']}")
+    # Load reference image if provided
+    reference_part = None
+    if args.reference:
+        reference_part = _load_reference_image(args.reference)
+        if reference_part:
+            print(f"Reference image: {args.reference}")
+            prompt += (
+                "\n\nREFERENCE IMAGE: I have attached a reference image. "
+                "Use this image as visual inspiration — incorporate its style, "
+                "color scheme, motifs, and overall aesthetic into the generated thumbnail. "
+                "The generated image should feel like it belongs to the same brand/series "
+                "as the reference, while being a unique composition for this specific article."
+            )
+        else:
+            print(f"Warning: Reference image not found: {args.reference}", file=sys.stderr)
+
     print(f"Generating thumbnail for: {args.title}")
     print(f"Prompt:\n{prompt}\n")
 
-    image_bytes = generate_image(api_key, prompt, args.model, args.aspect)
+    image_bytes = generate_image(api_key, prompt, args.model, args.aspect, reference_part)
     save_image(image_bytes, args.output)
     print("Done!")
 

@@ -81,7 +81,7 @@ Load the API key from `.env` and run the script:
 
 ```bash
 export GEMINI_API_KEY=$(grep GEMINI_API_KEY .env | cut -d= -f2)
-python3 ~/.claude/skills/blog-thumbnail-generator/scripts/generate_thumbnail.py \
+python3 .claude/skills/blog-thumbnail-generator/scripts/generate_thumbnail.py \
   --title "記事タイトル" \
   --slug "article-slug" \
   --output "path/to/output.jpg" \
@@ -89,8 +89,11 @@ python3 ~/.claude/skills/blog-thumbnail-generator/scripts/generate_thumbnail.py 
   --tags "tag1,tag2" \
   --category "tech" \
   --mood "auto" \
-  --model "gemini-3-pro-image-preview"
+  --model "gemini-3-pro-image-preview" \
+  --reference "path/to/reference-image.jpg"
 ```
+
+**`--reference` (optional):** Path to a reference image (logo, brand asset, design template). When provided, the generated thumbnail will incorporate the reference image's style, color scheme, and visual motifs. Useful for maintaining brand consistency across thumbnails.
 
 ### 4. Update frontmatter
 
@@ -101,3 +104,4 @@ If the blog post file exists, set `heroImage` to the path specified by project c
 Read the generated image file to show the user. If unsatisfactory, try:
 - Different mood: `--mood creative`, `--mood urgent`, etc.
 - Different model: `--model gemini-2.5-flash-image`
+- Reference image for brand consistency: `--reference src/assets/img/noimage.jpg`

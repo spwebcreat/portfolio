@@ -298,6 +298,7 @@ YouTube / Vimeo はそのまま HTML を記述:
 - **リアル指向**: フォトリアリスティックまたは高品質3Dレンダー風。抽象パターンではなく具象的なビジュアル
 - `--keyword` で英語キーワードを補助的に配置可能（例: `"AI FILTER"`, `"ASTRO"`）。**英語のみ**
 - `--mood` で明示指定も可能（例: `--mood urgent`, `--mood creative`）
+- `--reference` で参照画像を指定可能。ブランドロゴやデザインテンプレートを渡すと、そのスタイル・配色・モチーフを反映したサムネイルを生成する（例: `--reference src/assets/img/noimage.jpg`）
 
 ### 生成後の処理
 
