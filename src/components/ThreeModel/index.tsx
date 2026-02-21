@@ -1,4 +1,4 @@
-import React, { useRef, createRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useEffect, Suspense } from "react";
 import { useScroll, useTransform } from 'framer-motion';
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
@@ -12,21 +12,15 @@ import {
   useProgress,
 } from "@react-three/drei";
 import { motion as motion3d } from "framer-motion-3d";
+import { SkillCrystal, SKILL_CRYSTALS } from './SkillCrystal';
+import { CastleReactions } from './CastleReactions';
+import { DroneScout, OrbitalRing, TinyWanderer, MechanicalBirds, getScrollCyanBoost, useMobile } from './ScaleAssets';
 import styl from './index.module.styl';
 
 // Draco デコーダーの設定（floating-castle.glb はDraco圧縮済み）
 useGLTF.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
 
-const MODEL_URL = '/3dModels/sky-castle/floating-castle.glb';
-
-// 各破片の初期位置（GLBから取得した値）
-const FRAGMENT_BASE: { key: string; pos: [number, number, number] }[] = [
-  { key: 'Rock_Fragment_01', pos: [1.00,  0.10,  0.57] },
-  { key: 'Rock_Fragment_02', pos: [-1.00, 0.30,  0.84] },
-  { key: 'Rock_Fragment_03', pos: [-0.92, -0.10, -0.77] },
-  { key: 'Rock_Fragment_04', pos: [0.93,  0.50, -1.11] },
-  { key: 'Rock_Fragment_05', pos: [0.00, -0.25,  1.60] },
-];
+const MODEL_URL = '/models/floating-castle.glb';
 
 // スクロール時間変化の設定（朝→昼→夕→夜→深夜）
 const TIME_CONFIG = [
@@ -58,6 +52,42 @@ function lerpTimeConfig(scroll: number) {
   };
 }
 
+// --- リアルタイム連動 レイヤー1: 時間帯 ---
+
+interface TimeState {
+  period: 'dawn' | 'morning' | 'afternoon' | 'evening' | 'night'
+  ambientIntensity: number
+  cyanBoost: number
+}
+
+function getTimeState(): TimeState {
+  const hour = new Date().getHours()
+  if (hour >= 5 && hour < 8) return {
+    period: 'dawn', ambientIntensity: 0.75, cyanBoost: 0.4,
+  }
+  if (hour >= 8 && hour < 12) return {
+    period: 'morning', ambientIntensity: 1.0, cyanBoost: 0.2,
+  }
+  if (hour >= 12 && hour < 17) return {
+    period: 'afternoon', ambientIntensity: 0.9, cyanBoost: 0.3,
+  }
+  if (hour >= 17 && hour < 20) return {
+    period: 'evening', ambientIntensity: 0.6, cyanBoost: 0.7,
+  }
+  return {
+    period: 'night', ambientIntensity: 0.3, cyanBoost: 1.0,
+  }
+}
+
+function useTimeOfDay() {
+  const [state, setState] = useState(() => getTimeState())
+  useEffect(() => {
+    const interval = setInterval(() => setState(getTimeState()), 1800000) // 30分ごと
+    return () => clearInterval(interval)
+  }, [])
+  return state
+}
+
 // マウス追従パララックス
 const MouseParallax = () => {
   const { camera } = useThree();
@@ -86,36 +116,56 @@ const MouseParallax = () => {
   return null;
 };
 
-// スクロール時間変化 + シアン脈動を制御するコンポーネント
-const SceneLighting = ({ scrollYProgress }: { scrollYProgress: any }) => {
+// スクロール時間変化 + リアルタイム時間帯 + シアン脈動を制御するコンポーネント
+const SceneLighting = ({
+  scrollYProgress,
+  activeCrystalId,
+  timeLightingEnabled,
+}: {
+  scrollYProgress: any
+  activeCrystalId: string | null
+  timeLightingEnabled: boolean
+}) => {
   const ambientRef = useRef<THREE.AmbientLight>(null);
   const dirRef = useRef<THREE.DirectionalLight>(null);
   const cyanRef = useRef<THREE.PointLight>(null);
+  const timeOfDay = useTimeOfDay();
 
   const scrollRef = useRef(0);
   React.useEffect(() => {
     return scrollYProgress.on('change', (v: number) => { scrollRef.current = v; });
   }, [scrollYProgress]);
 
+  // Database active 時のシアン増幅
+  const dbBoostRef = useRef(0);
+
   useFrame(({ clock }) => {
     const scroll = scrollRef.current;
-    const time = lerpTimeConfig(scroll);
+    const scrollTime = lerpTimeConfig(scroll);
 
-    // 環境光の時間変化
+    // DB boost lerp
+    const targetBoost = activeCrystalId === 'database' ? 3.0 : 1.0;
+    dbBoostRef.current += (targetBoost - dbBoostRef.current) * 0.05;
+
+    // 時刻連動ライティングの適用倍率（OFF 時はニュートラル値）
+    const ambientMul = timeLightingEnabled ? timeOfDay.ambientIntensity : 1.0;
+    const cyanMul = timeLightingEnabled ? (0.5 + timeOfDay.cyanBoost * 0.5) : 0.5;
+
+    // 環境光: スクロール時間変化 × リアルタイム時間帯の影響
     if (ambientRef.current) {
-      ambientRef.current.color.copy(time.ambient);
-      ambientRef.current.intensity = time.intensity;
+      ambientRef.current.color.copy(scrollTime.ambient);
+      ambientRef.current.intensity = scrollTime.intensity * ambientMul;
     }
 
-    // 方向光の時間変化
+    // 方向光: スクロール時間変化 × リアルタイム時間帯
     if (dirRef.current) {
-      dirRef.current.intensity = time.dirIntensity;
+      dirRef.current.intensity = scrollTime.dirIntensity * ambientMul;
     }
 
-    // シアン発光: 時間変化 + 脈動（sin でゆっくり明滅）
+    // シアン発光: スクロール時間変化 × リアルタイムcyanBoost × 脈動 × DB boost
     if (cyanRef.current) {
       const pulse = Math.sin(clock.elapsedTime * 1.2) * 0.3 + 1; // 0.7〜1.3
-      cyanRef.current.intensity = time.cyanIntensity * pulse;
+      cyanRef.current.intensity = scrollTime.cyanIntensity * cyanMul * pulse * dbBoostRef.current;
     }
   });
 
@@ -165,65 +215,53 @@ const NightSky = ({ scrollYProgress }: { scrollYProgress: any }) => {
   );
 };
 
-const Model = ({ scrollYProgress }: { scrollYProgress: any }) => {
+const Model = ({
+  scrollYProgress,
+  activeCrystalId,
+  onActivateCrystal,
+  cyanBoostRef,
+}: {
+  scrollYProgress: any
+  activeCrystalId: string | null
+  onActivateCrystal: (id: string | null) => void
+  cyanBoostRef: React.MutableRefObject<number>
+}) => {
   const group = useRef<THREE.Group>(null);
-  const { nodes, materials } = useGLTF(MODEL_URL) as any;
+  const innerGroupRef = useRef<THREE.Group>(null);
+  const { nodes } = useGLTF(MODEL_URL) as any;
   const rotationY = useTransform(scrollYProgress, [0, 1], [0, Math.PI * 0.8]);
-
-  // 破片の ref
-  const fragmentRefs = useRef(FRAGMENT_BASE.map(() => createRef<THREE.Mesh>()));
-
-  // emissiveリセット（初回のみ）
-  React.useEffect(() => {
-    Object.values(materials).forEach((mat) => {
-      const m = mat as THREE.MeshStandardMaterial;
-      m.emissive.set('#000000');
-      m.emissiveIntensity = 0;
-      m.needsUpdate = true;
-    });
-  }, [materials]);
-
-  // スクロール値を毎フレーム取得するための ref
-  const scrollRef = useRef(0);
-  React.useEffect(() => {
-    return scrollYProgress.on('change', (v: number) => { scrollRef.current = v; });
-  }, [scrollYProgress]);
-
-  // 浮遊破片アニメーション（ふわふわ + スクロールで外側に散らばる）
-  useFrame(({ clock }) => {
-    const scroll = scrollRef.current; // 0（トップ）〜 1（最下部）
-    fragmentRefs.current.forEach((ref, i) => {
-      if (!ref.current) return;
-      const [baseX, baseY, baseZ] = FRAGMENT_BASE[i].pos;
-      // スクロールに応じて外側に広がる（spread: 0〜1.5倍の距離）
-      const spread = 1 + scroll * 1.5;
-      ref.current.position.x = baseX * spread;
-      ref.current.position.z = baseZ * spread;
-      // ふわふわ上下 + スクロールで少し沈む
-      ref.current.position.y = baseY + Math.sin(clock.elapsedTime * 0.8 + i * 1.2) * 0.03 - scroll * 0.5;
-      // ゆっくり自転（スクロールで加速）
-      ref.current.rotation.y += (0.03 + scroll * 0.05) * (i % 2 === 0 ? 1 : -1);
-    });
-  });
 
   return (
     <motion3d.group ref={group as any} rotation-y={rotationY}>
-      <group position={[0, -1, 0]}>
-        {/* 岩盤（GLBの元トランスフォームを保持） */}
-        <primitive object={nodes.Rock_Base} />
-        {/* 城（GLBの元トランスフォームを保持） */}
-        <primitive object={nodes.Castle} />
-        {/* 浮遊破片（個別アニメーション付き） */}
-        {FRAGMENT_BASE.map(({ key, pos }, i) => (
-          <mesh
-            key={key}
-            ref={fragmentRefs.current[i]}
-            geometry={nodes[key].geometry}
-            material={materials.Mat_Rock}
-            position={pos}
-            scale={0.01 * i + 0.05} // 破片ごとに少しずつサイズを変える
-          />
-        ))}
+      <group ref={innerGroupRef} position={[0, -0.2, 0]}>
+        {/* 城＋岩盤（Castle_Island 一体構造） */}
+        <primitive object={nodes.Castle_Island} />
+        {/* 城リアクション */}
+        <CastleReactions
+          activeCrystalId={activeCrystalId}
+          innerGroupRef={innerGroupRef}
+        />
+        {/* スキルの結晶 */}
+        <Suspense fallback={null}>
+          {SKILL_CRYSTALS.map((crystal, i) => (
+            <SkillCrystal
+              key={crystal.id}
+              index={i}
+              id={crystal.id}
+              model={crystal.model}
+              position={crystal.position}
+              title={crystal.title}
+              emissiveBase={crystal.emissiveBase}
+              lightColor={crystal.lightColor}
+              isActive={activeCrystalId === crystal.id}
+              onActivate={onActivateCrystal}
+            />
+          ))}
+        </Suspense>
+        {/* 城上を歩く小さな旅人 */}
+        <Suspense fallback={null}>
+          <TinyWanderer cyanBoostRef={cyanBoostRef} />
+        </Suspense>
       </group>
     </motion3d.group>
   );
@@ -270,11 +308,32 @@ const ScrollSparkles = ({ scrollYProgress }: { scrollYProgress: any }) => {
   );
 };
 
+// cyanBoostRef をスクロール進行度に連動させるドライバー
+const CyanBoostDriver = ({
+  scrollYProgress,
+  cyanBoostRef,
+}: {
+  scrollYProgress: any
+  cyanBoostRef: React.MutableRefObject<number>
+}) => {
+  const scrollRef = useRef(0);
+
+  React.useEffect(() => {
+    return scrollYProgress.on('change', (v: number) => { scrollRef.current = v; });
+  }, [scrollYProgress]);
+
+  useFrame(() => {
+    cyanBoostRef.current = getScrollCyanBoost(scrollRef.current);
+  });
+
+  return null;
+};
+
 useGLTF.preload(MODEL_URL);
 
 // ローディング画面
 const LoadingScreen = ({ onComplete }: { onComplete: () => void }) => {
-  const { progress, loaded, total } = useProgress();
+  const { progress } = useProgress();
   const [fadeOut, setFadeOut] = useState(false);
 
   React.useEffect(() => {
@@ -308,10 +367,46 @@ const LoadingScreen = ({ onComplete }: { onComplete: () => void }) => {
   );
 };
 
+// --- 2D Detail Panel ---
+function CrystalDetailPanel({
+  activeCrystalId,
+  onClose,
+}: {
+  activeCrystalId: string | null
+  onClose: () => void
+}) {
+  const crystal = activeCrystalId
+    ? SKILL_CRYSTALS.find((c) => c.id === activeCrystalId)
+    : null
+
+  return (
+    <div className={`${styl.detailPanel} ${crystal ? styl.open : ''}`}>
+      <button className={styl.panelClose} onClick={onClose} aria-label="Close">
+        ✕
+      </button>
+      {crystal && (
+        <>
+          <h3 className={styl.panelTitle}>{crystal.title}</h3>
+          <p className={styl.panelDesc}>{crystal.description}</p>
+          <div className={styl.panelTags}>
+            {crystal.tags.map((tag) => (
+              <span key={tag} className={styl.panelTag}>{tag}</span>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function ThreeScene() {
 
   const { scrollYProgress } = useScroll();
   const [phase, setPhase] = useState<'loading' | 'fog' | 'ready'>('loading');
+  const [activeCrystalId, setActiveCrystalId] = useState<string | null>(null);
+  const [timeLightingEnabled, setTimeLightingEnabled] = useState(true);
+  const cyanBoostRef = useRef(0.3);
+  const isMobile = useMobile();
 
   const handleLoadComplete = useCallback(() => {
     setPhase('fog');
@@ -331,9 +426,10 @@ export default function ThreeScene() {
           toneMapping: THREE.ACESFilmicToneMapping,
           outputColorSpace: THREE.SRGBColorSpace,
         }}
+        onPointerMissed={() => setActiveCrystalId(null)}
       >
-        {/* ライティング（時間変化 + シアン脈動） */}
-        <SceneLighting scrollYProgress={scrollYProgress} />
+        {/* ライティング（時間変化 + シアン脈動 + DB boost） */}
+        <SceneLighting scrollYProgress={scrollYProgress} activeCrystalId={activeCrystalId} timeLightingEnabled={timeLightingEnabled} />
         {/* 星空背景（夜に浮かび上がる） */}
         <NightSky scrollYProgress={scrollYProgress} />
         {/* マウス追従パララックス */}
@@ -363,19 +459,46 @@ export default function ThreeScene() {
           floatIntensity={0.5}
           floatingRange={[-0.1, 0.5]}
         >
-          <Model scrollYProgress={scrollYProgress} />
+          <Model
+            scrollYProgress={scrollYProgress}
+            activeCrystalId={activeCrystalId}
+            onActivateCrystal={setActiveCrystalId}
+            cyanBoostRef={cyanBoostRef}
+          />
         </Float>
+        {/* スケール感演出アセット */}
+        <CyanBoostDriver scrollYProgress={scrollYProgress} cyanBoostRef={cyanBoostRef} />
+        <Suspense fallback={null}>
+          <DroneScout cyanBoostRef={cyanBoostRef} />
+        </Suspense>
+        {!isMobile && (
+          <Suspense fallback={null}>
+            <OrbitalRing cyanBoostRef={cyanBoostRef} />
+          </Suspense>
+        )}
+        <Suspense fallback={null}>
+          <MechanicalBirds cyanBoostRef={cyanBoostRef} isMobile={isMobile} />
+        </Suspense>
         <OrbitControls
           enableZoom={true}
           minDistance={3}
           maxDistance={3}
-          onChange={(e) => {
-            if (e?.target) {
-              // console.log('camera:', e.target.object.position.x.toFixed(2), e.target.object.position.y.toFixed(2), e.target.object.position.z.toFixed(2));
-            }
-          }}
         />
       </Canvas>
+      {/* 2D 詳細パネル（Canvas外） */}
+      <CrystalDetailPanel
+        activeCrystalId={activeCrystalId}
+        onClose={() => setActiveCrystalId(null)}
+      />
+      {/* 時刻ライティング トグル */}
+      <button
+        className={styl.timeToggle}
+        onClick={() => setTimeLightingEnabled(v => !v)}
+        data-active={timeLightingEnabled || undefined}
+        aria-label="Toggle time-based lighting"
+      >
+        {timeLightingEnabled ? '🕐 Time ON' : '🕐 Time OFF'}
+      </button>
       {/* ローディング画面（Canvas外でHTML描画） */}
       <LoadingScreen onComplete={handleLoadComplete} />
       {/* 霧オーバーレイ（ローディング後に晴れる） */}
