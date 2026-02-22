@@ -175,6 +175,10 @@ const TIME_CONFIG = [
 
 ## 5. 浮遊破片
 
+> **注記（2026-02-22）**: 浮遊破片（Rock_Fragment_01〜05）はスキルの結晶に置き換え済み。
+> 結晶のアニメーション（浮遊・自転・脈動発光）は `SkillCrystal` コンポーネント内の `useFrame` で制御。
+> 以下のパラメータは旧実装のリファレンスとして残している。
+
 ### 5-1. 初期位置
 
 ```tsx
@@ -588,11 +592,13 @@ ThreeScene (export default)
 │   ├── Cloud × 2            ← 霧・モヤ演出
 │   ├── ScrollSparkles       ← パーティクル（スクロール速度連動）
 │   │   └── Sparkles
-│   ├── Float                ← 全体の浮遊
-│   │   └── Model            ← 城モデル + 破片アニメーション
-│   │       ├── primitive (Rock_Base)
-│   │       ├── primitive (Castle)
-│   │       └── mesh × 5 (Rock_Fragment_01〜05) ← useFrameアニメーション
+│   ├── Float → Model        ← 城 + 結晶 + スケール演出アセット
+│   │   ├── Castle（floating-castle.glb）
+│   │   ├── SkillCrystal × 5（ホバーインタラクション付き）
+│   │   ├── DroneScout（周回飛行）
+│   │   ├── OrbitalRing（遠景半透明リング）
+│   │   ├── TinyWanderer（歩行アニメーション）
+│   │   └── MechanicalBirds × 7（群れ飛行）
 │   └── OrbitControls        ← ドラッグ操作
 ├── LoadingScreen            ← ローディング画面（Canvas外HTML）
 └── fogOverlay               ← 霧オーバーレイ（CSSフェードアウト）
@@ -622,12 +628,9 @@ pointLight:       intensity=3    color=#00e5ff  distance=3  decay=2
 --- Float ---
 speed=1  rotationIntensity=0.5  floatIntensity=0.5  range=[-0.1, 0.5]
 
---- 破片 ---
-scale:    0.01*i + 0.05 (0.05〜0.09)
-ふわふわ: speed=0.8  amplitude=0.03  phase=i*1.2
-散らばり: scroll * 1.5
-沈み:    scroll * 0.5
-自転:    0.03 + scroll*0.05
+--- 破片（→ スキルの結晶に置き換え済み）---
+旧: scale=0.01*i+0.05  ふわふわ=0.8/0.03  自転=0.03
+現: SkillCrystal コンポーネントで個別制御
 
 --- スクロール回転 ---
 0 → π*0.8 (約144度)

@@ -33,6 +33,28 @@
 
 ---
 
+## 3Dアセット
+
+### 実装済みアセット一覧（public/models/）
+- floating-castle.glb — 城＋岩盤メイン
+- crystal-*.glb × 5 — スキルの結晶（ホバーインタラクション付き）
+- drone-scout.glb — 偵察ドローン
+- orbital-ring.glb — 巨大リング（遠景）
+- tiny-wanderer.glb — ローブの旅人（歩行アニメーション付き）
+- mechanical-bird.glb — 機械の鳥
+
+### 共通仕様
+- アクセントカラー: #00e5ff（シアン）
+- GLB: Draco圧縮レベル6、Y-up座標系
+- Dracoデコーダー: https://www.gstatic.com/draco/versioned/decoders/1.5.6/
+
+### 3Dシーン詳細
+- パラメータ調整: `docs/3d-tuning-guide.md` 参照
+- 未着手タスク・ロードマップ: `docs/r3f-knowledge.md` 参照
+- プロジェクト完了記録: `docs/3d-enhancement-report.md` 参照
+
+---
+
 ## Works セクション仕様 (`src/components/Layouts/Works.astro`)
 
 クライアント制作実績を表示するセクション。
