@@ -37,11 +37,12 @@
 
 ### 実装済みアセット一覧（public/models/）
 - floating-castle.glb — 城＋岩盤メイン
-- crystal-*.glb × 5 — スキルの結晶（ホバーインタラクション付き）
+- crystal-*.glb × 5 — スキルの結晶（衛星軌道周回 + クリックインタラクション）
 - drone-scout.glb — 偵察ドローン
 - orbital-ring.glb — 巨大リング（遠景）
-- tiny-wanderer.glb — ローブの旅人（歩行アニメーション付き）
 - mechanical-bird.glb — 機械の鳥
+
+> **注記**: tiny-wanderer.glb（ローブの旅人）はシーンから削除済み。アセットファイルは残存。
 
 ### 共通仕様
 - アクセントカラー: #00e5ff（シアン）

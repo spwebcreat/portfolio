@@ -6,11 +6,20 @@ import styl from './index.module.styl'
 
 // --- Data ---
 
+export interface OrbitParams {
+  radius: number
+  height: number
+  speed: number   // rad/s
+  phase: number   // 初期角度オフセット (度)
+  tilt: number    // 軌道面の傾斜角 (度)
+  tiltDir: number // 傾斜方向 (度)
+}
+
 export const SKILL_CRYSTALS = [
   {
     id: 'code-tablet',
     model: '/models/crystal-code-tablet.glb',
-    position: [1.00, 0.10, 0.57] as const,
+    orbit: { radius: 1.2, height: 0.10, speed: 0.12, phase: 0, tilt: 12, tiltDir: 0 },
     title: 'Frontend',
     description: 'HTML/CSS/JS/TSによるモダンフロントエンド開発',
     tags: ['HTML', 'CSS', 'JavaScript', 'TypeScript', 'Three.js', 'TailwindCSS'],
@@ -20,7 +29,7 @@ export const SKILL_CRYSTALS = [
   {
     id: 'ai-cube',
     model: '/models/crystal-ai-cube.glb',
-    position: [-1.00, 0.30, 0.84] as const,
+    orbit: { radius: 1.3, height: 0.20, speed: 0.10, phase: 72, tilt: 18, tiltDir: 120 },
     title: 'AI連携',
     description: 'Claude API / Gemini APIを活用したAI機能開発',
     tags: ['Claude API', 'Gemini API'],
@@ -30,17 +39,17 @@ export const SKILL_CRYSTALS = [
   {
     id: 'gear-nature',
     model: '/models/crystal-gear-nature.glb',
-    position: [-0.92, -0.10, -0.77] as const,
+    orbit: { radius: 1.1, height: 0.00, speed: 0.14, phase: 144, tilt: 15, tiltDir: 240 },
     title: 'CMS / Framework',
     description: 'WordPress構築・プラグイン開発・CMS自動化・Next.jsなどのフレームワーク経験',
-    tags: ['WordPress', 'PHP', 'REST API', 'カスタムテーマ'],
+    tags: ['WordPress', 'PHP', 'REST API', 'Next.js', 'Astro.js'],
     emissiveBase: 2.0,
     lightColor: '#22d3ee',
   },
   {
     id: 'database',
     model: '/models/crystal-database.glb',
-    position: [0.93, 0.50, -1.11] as const,
+    orbit: { radius: 1.4, height: 0.30, speed: 0.08, phase: 216, tilt: 22, tiltDir: 60 },
     title: 'Database / Infra',
     description: 'データベース設計からインフラ構築まで',
     tags: ['MySQL', 'PostgreSQL', 'Supabase', 'Firebase', 'Docker', 'Vercel'],
@@ -50,7 +59,7 @@ export const SKILL_CRYSTALS = [
   {
     id: 'hologram-disc',
     model: '/models/crystal-hologram-disc.glb',
-    position: [0.00, -0.25, 1.60] as const,
+    orbit: { radius: 1.5, height: -0.10, speed: 0.11, phase: 288, tilt: 10, tiltDir: 180 },
     title: 'Design',
     description: 'ユーザー体験を重視したUI/UX/WEBデザイン',
     tags: ['Figma', 'レスポンシブ', 'アクセシビリティ'],
@@ -66,7 +75,7 @@ export type SkillCrystalData = (typeof SKILL_CRYSTALS)[number]
 interface SkillCrystalProps {
   id: string
   model: string
-  position: readonly [number, number, number]
+  orbit: OrbitParams
   title: string
   emissiveBase: number
   lightColor: string
@@ -76,12 +85,14 @@ interface SkillCrystalProps {
 }
 
 export function SkillCrystal({
-  id, model, position, title, emissiveBase, lightColor,
+  id, model, orbit, title, emissiveBase, lightColor,
   index, isActive, onActivate,
 }: SkillCrystalProps) {
   const { scene } = useGLTF(model)
   const meshRef = useRef<THREE.Group>(null)
   const pointLightRef = useRef<THREE.PointLight>(null)
+  const angleRef = useRef(orbit.phase * (Math.PI / 180))
+  const velocityRef = useRef(orbit.speed)
 
   const clonedScene = useMemo(() => scene.clone(), [scene])
 
@@ -112,19 +123,47 @@ export function SkillCrystal({
     return mats
   }, [clonedScene, id])
 
+  // 傾斜軌道の事前計算値
+  const tiltRad = useMemo(() => orbit.tilt * (Math.PI / 180), [orbit.tilt])
+  const tiltDirRad = useMemo(() => orbit.tiltDir * (Math.PI / 180), [orbit.tiltDir])
+
   useFrame(({ clock }) => {
     if (!meshRef.current) return
     const t = clock.elapsedTime
 
-    // 浮遊アニメーション
-    meshRef.current.position.y =
-      position[1] + Math.sin(t * 0.8 + index * 1.2) * 0.03
+    // 角速度のスムーズ遷移（active時は減速、非active時は加速）
+    const targetVelocity = isActive ? 0 : orbit.speed
+    velocityRef.current += (targetVelocity - velocityRef.current) * 0.05
+
+    // 角度を更新
+    angleRef.current += velocityRef.current * (1 / 60) // 約60fpsを想定
+
+    // 傾斜軌道の位置計算
+    const angle = angleRef.current
+    const baseX = orbit.radius * Math.cos(angle)
+    const baseZ = orbit.radius * Math.sin(angle)
+
+    // 傾斜を適用
+    const tiltedY = orbit.height + baseZ * Math.sin(tiltRad)
+    const tiltedZ = baseZ * Math.cos(tiltRad)
+
+    // tiltDir でY軸回転して最終位置を算出
+    const cosDir = Math.cos(tiltDirRad)
+    const sinDir = Math.sin(tiltDirRad)
+    const finalX = baseX * cosDir - tiltedZ * sinDir
+    const finalZ = baseX * sinDir + tiltedZ * cosDir
+
+    meshRef.current.position.set(
+      finalX,
+      tiltedY + Math.sin(t * 0.8 + index * 1.2) * 0.03, // 浮遊アニメーション
+      finalZ,
+    )
 
     // ゆっくり自転
     meshRef.current.rotation.y += 0.002 * (index % 2 === 0 ? 1 : -1)
 
     // 脈動する発光（振幅拡大）
-    const pulse = emissiveBase + Math.sin(t * 1.5 + index * 1.8) * 1.8
+    const pulse = emissiveBase + Math.sin(t * 1.5 + index * 1.8) * 0.8
     const intensity = isActive ? pulse * 2.0 : pulse
     emissiveMats.forEach((mat) => {
       mat.emissiveIntensity = intensity
@@ -140,7 +179,6 @@ export function SkillCrystal({
   return (
     <group
       ref={meshRef}
-      position={[position[0], position[1], position[2]]}
       onPointerOver={(e) => {
         e.stopPropagation()
         document.body.style.cursor = 'pointer'

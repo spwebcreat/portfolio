@@ -9,18 +9,19 @@ import {
   Cloud,
   Stars,
   Sparkles,
-  useProgress,
 } from "@react-three/drei";
 import { motion as motion3d } from "framer-motion-3d";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { SkillCrystal, SKILL_CRYSTALS } from './SkillCrystal';
 import { CastleReactions } from './CastleReactions';
-import { DroneScout, OrbitalRing, TinyWanderer, MechanicalBirds, getScrollCyanBoost, useMobile } from './ScaleAssets';
+import { DroneScout, OrbitalRing, MechanicalBirds, getScrollCyanBoost, useMobile } from './ScaleAssets';
+import LoadingGlitch from './LoadingGlitch';
 import styl from './index.module.styl';
 
 // Draco デコーダーの設定（floating-castle.glb はDraco圧縮済み）
 useGLTF.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
 
-const MODEL_URL = '/models/floating-castle.glb';
+const MODEL_URL = '/models/floating-castle-v5.glb';
 
 // スクロール時間変化の設定（朝→昼→夕→夜→深夜）
 const TIME_CONFIG = [
@@ -171,7 +172,7 @@ const SceneLighting = ({
 
   return (
     <>
-      <ambientLight ref={ambientRef} intensity={0.5} color="#e8f4ff" />
+      <ambientLight ref={ambientRef} intensity={1.5} color="#e8f4ff" />
       <directionalLight ref={dirRef} position={[5, 8, 3]} intensity={2} color="#ffffff" />
       <pointLight
         ref={cyanRef}
@@ -228,14 +229,88 @@ const Model = ({
 }) => {
   const group = useRef<THREE.Group>(null);
   const innerGroupRef = useRef<THREE.Group>(null);
-  const { nodes } = useGLTF(MODEL_URL) as any;
+  const { nodes, materials } = useGLTF(MODEL_URL) as any;
   const rotationY = useTransform(scrollYProgress, [0, 1], [0, Math.PI * 0.8]);
+
+  // emissive リセット（Mat_Cyan_Glow / Mat_Crystal は発光を維持するためスキップ）
+  React.useEffect(() => {
+    Object.values(materials).forEach((mat) => {
+      const m = mat as THREE.MeshStandardMaterial;
+      if (m.name === 'Mat_Cyan_Glow' || m.name === 'Mat_Crystal') return;
+      m.emissive.set('#000000');
+      m.emissiveIntensity = 0;
+      m.needsUpdate = true;
+    });
+  }, [materials]);
+
+  // Mat_Cyan_Glow の脈動（SceneLighting のシアン脈動と同じリズム）
+  const glowMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
+  // Mat_Crystal のスクロール連動発光
+  const crystalMatRef = useRef<THREE.MeshStandardMaterial | null>(null);
+  React.useEffect(() => {
+    const glowMat = Object.values(materials).find(
+      (m) => (m as THREE.MeshStandardMaterial).name === 'Mat_Cyan_Glow'
+    ) as THREE.MeshStandardMaterial | undefined;
+    glowMatRef.current = glowMat ?? null;
+
+    const crystalMat = Object.values(materials).find(
+      (m) => (m as THREE.MeshStandardMaterial).name === 'Mat_Crystal'
+    ) as THREE.MeshStandardMaterial | undefined;
+    crystalMatRef.current = crystalMat ?? null;
+  }, [materials]);
+
+  // スクロール値・速度を ref で追跡
+  const scrollRef = useRef(0);
+  const prevScrollRef = useRef(0);
+  const scrollVelocityRef = useRef(0);
+  React.useEffect(() => {
+    return scrollYProgress.on('change', (v: number) => { scrollRef.current = v; });
+  }, [scrollYProgress]);
+
+  // リアルタイム時間帯（夜ほどクリスタルが輝く）
+  const timeOfDay = useTimeOfDay();
+
+  useFrame(({ clock }) => {
+    const pulse = Math.sin(clock.elapsedTime * 1.2) * 0.3 + 1; // 0.7〜1.3
+
+    // Mat_Cyan_Glow: emissiveIntensity を 0.3〜0.8 でゆらす
+    if (glowMatRef.current) {
+      glowMatRef.current.emissiveIntensity = 0.3 + pulse * 0.25;
+    }
+
+    // --- Mat_Crystal: スクロール位置 × 加速度 × 時間帯 で発光制御 ---
+    if (crystalMatRef.current) {
+      // 1) emissive色をGLB元のシアンに復帰
+      crystalMatRef.current.emissive.set('#00e5ff');
+
+      // 2) スクロール位置ベース（朝 0.3 → 深夜 3.0）
+      const scroll = scrollRef.current;
+      const scrollBase = 0.3 + scroll * 2.7;
+
+      // 3) スクロール加速度ブースト（速く動かすほど光が増す）
+      const rawVelocity = Math.abs(scroll - prevScrollRef.current) * 100;
+      prevScrollRef.current = scroll;
+      // なめらかに追従（急に消えない）
+      scrollVelocityRef.current += (rawVelocity - scrollVelocityRef.current) * 0.08;
+      const velocityBoost = 1.0 + Math.min(scrollVelocityRef.current * 4, 5.0); // 1.0〜6.0
+
+      // 4) 時間帯倍率（朝 0.6x → 夜 1.5x）
+      const timeMul = 0.6 + timeOfDay.cyanBoost * 0.9;
+
+      // 5) 脈動（速度が高いほど脈動も速くなる）
+      const pulseSpeed = 1.2 + scrollVelocityRef.current * 3;
+      const crystalPulse = Math.sin(clock.elapsedTime * pulseSpeed) * 0.3 + 1;
+
+      // 最終: scrollBase × velocityBoost × timeMul × pulse
+      crystalMatRef.current.emissiveIntensity = scrollBase * velocityBoost * timeMul * crystalPulse;
+    }
+  });
 
   return (
     <motion3d.group ref={group as any} rotation-y={rotationY}>
       <group ref={innerGroupRef} position={[0, -0.2, 0]}>
-        {/* 城＋岩盤（Castle_Island 一体構造） */}
-        <primitive object={nodes.Castle_Island} />
+        {/* 城＋岩盤（Mesh_0 一体構造） */}
+        <primitive object={nodes.Mesh_0} />
         {/* 城リアクション */}
         <CastleReactions
           activeCrystalId={activeCrystalId}
@@ -249,7 +324,7 @@ const Model = ({
               index={i}
               id={crystal.id}
               model={crystal.model}
-              position={crystal.position}
+              orbit={crystal.orbit}
               title={crystal.title}
               emissiveBase={crystal.emissiveBase}
               lightColor={crystal.lightColor}
@@ -258,13 +333,38 @@ const Model = ({
             />
           ))}
         </Suspense>
-        {/* 城上を歩く小さな旅人 */}
-        <Suspense fallback={null}>
-          <TinyWanderer cyanBoostRef={cyanBoostRef} />
-        </Suspense>
       </group>
     </motion3d.group>
   );
+};
+
+// --- Bloom 除外レイヤー ---
+// レイヤー11 のオブジェクトはブルームパスに含まれず、別パスで描画される
+const BLOOM_EXCLUDE_LAYER = 11;
+
+// 子要素をレイヤー11 に移してブルーム対象から除外するラッパー
+const BloomExcluded = ({ children }: { children: React.ReactNode }) => {
+  const groupRef = useRef<THREE.Group>(null);
+  useFrame(() => {
+    if (!groupRef.current) return;
+    groupRef.current.traverse((obj) => obj.layers.set(BLOOM_EXCLUDE_LAYER));
+  });
+  return <group ref={groupRef}>{children}</group>;
+};
+
+// ブルーム後にレイヤー11 を手動描画するコンポーネント
+const AfterBloomRenderer = () => {
+  const { gl, scene, camera } = useThree();
+  useFrame(() => {
+    const savedMask = camera.layers.mask;
+    camera.layers.set(BLOOM_EXCLUDE_LAYER);
+    gl.autoClear = false;
+    gl.clear(false, true, false); // depth のみクリア
+    gl.render(scene, camera);
+    camera.layers.mask = savedMask;
+    gl.autoClear = true;
+  }, 2); // priority 2: EffectComposer（priority 1）の後に実行
+  return null;
 };
 
 // スクロール速度連動パーティクル
@@ -331,40 +431,52 @@ const CyanBoostDriver = ({
 
 useGLTF.preload(MODEL_URL);
 
-// ローディング画面
-const LoadingScreen = ({ onComplete }: { onComplete: () => void }) => {
-  const { progress } = useProgress();
-  const [fadeOut, setFadeOut] = useState(false);
+// カメラ reveal 演出（パン & ズーム）
+const CAMERA_START = new THREE.Vector3(3, 4, 16);
+const CAMERA_END = new THREE.Vector3(0, 0.5, 3);
 
-  React.useEffect(() => {
-    if (progress >= 100) {
-      // ロード完了 → 少し待ってからフェードアウト開始
-      const timer = setTimeout(() => {
-        setFadeOut(true);
-        // フェードアウト完了後にコールバック
-        const removeTimer = setTimeout(onComplete, 1500);
-        return () => clearTimeout(removeTimer);
-      }, 500);
-      return () => clearTimeout(timer);
+const CameraReveal = ({ phase }: { phase: 'loading' | 'fog' | 'ready' }) => {
+  const { camera } = useThree();
+  const startedRef = useRef(false);
+  const doneRef = useRef(false);
+  const tmpVec = useRef(new THREE.Vector3());
+
+  // Set camera to start position on mount
+  useEffect(() => {
+    camera.position.copy(CAMERA_START);
+    camera.lookAt(0, 0, 0);
+  }, [camera]);
+
+  useFrame(() => {
+    if (doneRef.current) return;
+
+    if (phase === 'loading') {
+      // Hold at start position with subtle drift
+      camera.position.copy(CAMERA_START);
+      camera.lookAt(0, 0, 0);
+      return;
     }
-  }, [progress, onComplete]);
 
-  return (
-    <div className={`${styl.loadingOverlay} ${fadeOut ? styl.fadeOut : ''}`}>
-      {/* シアンの光の粒（CSS） */}
-      <svg width="40" height="40" viewBox="0 0 40 40">
-        <circle cx="20" cy="20" r="8" fill="none" stroke="#00e5ff" strokeWidth="1" opacity="0.6">
-          <animate attributeName="r" from="8" to="18" dur="1.5s" repeatCount="indefinite" />
-          <animate attributeName="opacity" from="0.6" to="0" dur="1.5s" repeatCount="indefinite" />
-        </circle>
-        <circle cx="20" cy="20" r="3" fill="#00e5ff" opacity="0.8" />
-      </svg>
-      <div className={styl.loadingProgress}>
-        <div className={styl.loadingBar} style={{ width: `${progress}%` }} />
-      </div>
-      <div className={styl.loadingText}>Loading</div>
-    </div>
-  );
+    if (phase === 'fog' || phase === 'ready') {
+      if (!startedRef.current) {
+        startedRef.current = true;
+      }
+
+      // Smooth lerp toward final position
+      tmpVec.current.copy(CAMERA_END);
+      camera.position.lerp(tmpVec.current, 0.025);
+      camera.lookAt(0, 0, 0);
+
+      // Check if close enough to hand off to OrbitControls
+      const dist = camera.position.distanceTo(CAMERA_END);
+      if (dist < 0.05) {
+        camera.position.copy(CAMERA_END);
+        doneRef.current = true;
+      }
+    }
+  });
+
+  return null;
 };
 
 // --- 2D Detail Panel ---
@@ -408,6 +520,23 @@ export default function ThreeScene() {
   const cyanBoostRef = useRef(0.3);
   const isMobile = useMobile();
 
+  // MainVisual のスキルボタンからのイベントを受信
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const id = (e as CustomEvent<{ id: string | null }>).detail.id;
+      setActiveCrystalId(id);
+    };
+    window.addEventListener('crystal:activate', handler);
+    return () => window.removeEventListener('crystal:activate', handler);
+  }, []);
+
+  // activeCrystalId が変わったら MainVisual のボタンへ通知
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('crystal:statechange', {
+      detail: { id: activeCrystalId },
+    }));
+  }, [activeCrystalId]);
+
   const handleLoadComplete = useCallback(() => {
     setPhase('fog');
     // 霧が半分晴れた頃にテキスト表示イベントを発火
@@ -419,9 +548,19 @@ export default function ThreeScene() {
   }, []);
 
   return (
+    <>
+    {/* 時刻ライティング トグル（Canvas外・最上位レイヤー） */}
+    <button
+      className={styl.timeToggle}
+      onClick={() => setTimeLightingEnabled(v => !v)}
+      data-active={timeLightingEnabled || undefined}
+      aria-label="Toggle time-based lighting"
+    >
+      {timeLightingEnabled ? '🕐 Time ON' : '🕐 Time OFF'}
+    </button>
     <div className={styl.canvasModel}>
       <Canvas
-        camera={{ position: [0, 0.5, 10], fov: 45 }}
+        camera={{ position: [3, 4, 16], fov: 45 }}
         gl={{
           toneMapping: THREE.ACESFilmicToneMapping,
           outputColorSpace: THREE.SRGBColorSpace,
@@ -432,8 +571,10 @@ export default function ThreeScene() {
         <SceneLighting scrollYProgress={scrollYProgress} activeCrystalId={activeCrystalId} timeLightingEnabled={timeLightingEnabled} />
         {/* 星空背景（夜に浮かび上がる） */}
         <NightSky scrollYProgress={scrollYProgress} />
-        {/* マウス追従パララックス */}
-        <MouseParallax />
+        {/* カメラ reveal 演出（ローディング後にパン＆ズーム） */}
+        <CameraReveal phase={phase} />
+        {/* マウス追従パララックス（reveal 完了後のみ動作） */}
+        {phase === 'ready' && <MouseParallax />}
         {/* 霧・モヤ演出（ラピュタ風） */}
         <Cloud
           position={[0, -0.5, 0]}
@@ -451,8 +592,11 @@ export default function ThreeScene() {
           segments={8}
           color="#e0f0ff"
         />
-        {/* パーティクル（スクロール速度連動） */}
-        <ScrollSparkles scrollYProgress={scrollYProgress} />
+        {/* パーティクル（スクロール速度連動・ブルーム除外） */}
+        <BloomExcluded>
+          <ScrollSparkles scrollYProgress={scrollYProgress} />
+        </BloomExcluded>
+        <AfterBloomRenderer />
         <Float
           speed={1}
           rotationIntensity={0.5}
@@ -483,28 +627,32 @@ export default function ThreeScene() {
           enableZoom={true}
           minDistance={3}
           maxDistance={3}
+          enabled={phase === 'ready'}
         />
+        {/* ポストプロセス: Bloom（クリスタル等の高輝度オブジェクトのみグロウ） */}
+        <EffectComposer multisampling={0}>
+          <Bloom
+            intensity={2.0}
+            luminanceThreshold={1.5}
+            luminanceSmoothing={0.2}
+            mipmapBlur
+          />
+        </EffectComposer>
       </Canvas>
       {/* 2D 詳細パネル（Canvas外） */}
       <CrystalDetailPanel
         activeCrystalId={activeCrystalId}
         onClose={() => setActiveCrystalId(null)}
       />
-      {/* 時刻ライティング トグル */}
-      <button
-        className={styl.timeToggle}
-        onClick={() => setTimeLightingEnabled(v => !v)}
-        data-active={timeLightingEnabled || undefined}
-        aria-label="Toggle time-based lighting"
-      >
-        {timeLightingEnabled ? '🕐 Time ON' : '🕐 Time OFF'}
-      </button>
-      {/* ローディング画面（Canvas外でHTML描画） */}
-      <LoadingScreen onComplete={handleLoadComplete} />
+      {/* パーティクル集合型ローディング演出 */}
+      {phase === 'loading' && (
+        <LoadingGlitch onTransitionComplete={handleLoadComplete} />
+      )}
       {/* 霧オーバーレイ（ローディング後に晴れる） */}
       {phase !== 'ready' && (
         <div className={`${styl.fogOverlay} ${phase === 'fog' ? styl.clear : ''}`} />
       )}
     </div>
+    </>
   );
 }

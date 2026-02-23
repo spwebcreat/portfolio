@@ -11,24 +11,30 @@
 ```
 ThreeScene
 ├── Canvas
+│   ├── CameraReveal（ローディング後のカメラ パン&ズーム演出）
 │   ├── SceneLighting（時間変化ライティング + シアン脈動）
 │   ├── NightSky（星空 / スクロール40%以降で表示）
-│   ├── MouseParallax（マウス追従カメラ）
+│   ├── MouseParallax（マウス追従カメラ / phase=ready のみ）
 │   ├── Cloud × 2（霧・モヤ演出）
 │   ├── ScrollSparkles（パーティクル / スクロール速度連動）
 │   ├── Float → Model（城 + 結晶 + スケール演出アセット）
-│   └── OrbitControls
-├── LoadingScreen（Canvas外HTML）
+│   └── OrbitControls（phase=ready のみ有効）
+├── CrystalDetailPanel（スキル詳細 / 下からスライドアップ）
+├── LoadingGlitch（グリッチローディング / phase=loading のみ表示）
 └── fogOverlay（CSSフェードアウト）
+
+MainVisual (Astro)
+└── skillNav（スキルボタン × 5 / CustomEvent連携）
 ```
 
 ### 実装済みアセット
 - 城＆岩盤（floating-castle.glb）
-- スキルの結晶 × 5（ホバーインタラクション + ツールチップ付き）
+- スキルの結晶 × 5（衛星軌道周回 + クリックインタラクション + 詳細パネル）
 - 偵察ドローン（周回飛行）
 - 巨大リング（遠景・半透明）
-- ローブの旅人（歩行アニメーション）
 - 機械の鳥（7羽群れ飛行）
+
+> **削除済み**: ローブの旅人（tiny-wanderer.glb）— シーンから除外。アセットファイルは残存。
 
 ### 共通仕様
 - Dracoデコーダー: https://www.gstatic.com/draco/versioned/decoders/1.5.6/
@@ -38,7 +44,7 @@ ThreeScene
 ## 未着手タスク（ロードマップ）
 
 ### 優先度: 高
-1. **リアルタイム連動 レイヤー1: 時間帯** — 訪問者のローカル時間でシーン雰囲気を変更
+1. ~~**リアルタイム連動 レイヤー1: 時間帯**~~ — **実装済み**（`useTimeOfDay` + Time ON/OFF トグル）
 2. **リアルタイム連動 レイヤー2: 天気API** — OpenWeatherMap連携
 
 ### 優先度: 中

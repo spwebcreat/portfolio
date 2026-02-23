@@ -1,8 +1,16 @@
 ---
 import { Image } from 'astro:assets';
 import mainVisualLogo from '@/assets/img/logo-mark.svg';
+
+const skillButtons = [
+  { id: 'code-tablet', label: 'Frontend' },
+  { id: 'ai-cube', label: 'AI' },
+  { id: 'gear-nature', label: 'CMS / FW' },
+  { id: 'database', label: 'DB / Infra' },
+  { id: 'hologram-disc', label: 'Design' },
+];
 ---
-  
+
   <section class="mainvisual">
 
 		<h2 class="mainvisualInfo font-extrabold grid gap-y-2">
@@ -12,6 +20,17 @@ import mainVisualLogo from '@/assets/img/logo-mark.svg';
 				SP WEB CREAT.
 			</div>
 			<span class="text-lg text-center">Portfolio website</span>
+			<nav class="skillNav" aria-label="Skill crystals">
+				{skillButtons.map((skill) => (
+					<button
+						class="skillBtn"
+						data-crystal-id={skill.id}
+						type="button"
+					>
+						{skill.label}
+					</button>
+				))}
+			</nav>
 		</h2>
 
 	</section>
@@ -20,10 +39,29 @@ import mainVisualLogo from '@/assets/img/logo-mark.svg';
     window.addEventListener('threemodel:reveal', () => {
       document.querySelector('.mainvisualInfo')?.classList.add('is-show');
     }, { once: true });
+
+    // スキルボタン → ThreeScene へ発火
+    document.querySelectorAll<HTMLButtonElement>('.skillBtn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.crystalId!;
+        const isActive = btn.classList.contains('is-active');
+        window.dispatchEvent(new CustomEvent('crystal:activate', {
+          detail: { id: isActive ? null : id },
+        }));
+      });
+    });
+
+    // ThreeScene → ボタンの active 状態を同期
+    window.addEventListener('crystal:statechange', ((e: CustomEvent<{ id: string | null }>) => {
+      const activeId = e.detail.id;
+      document.querySelectorAll<HTMLButtonElement>('.skillBtn').forEach((btn) => {
+        btn.classList.toggle('is-active', btn.dataset.crystalId === activeId);
+      });
+    }) as EventListener);
   </script>
 
   <style lang="stylus">
-    .mainvisual 
+    .mainvisual
       width: 100%
       height: 100vh
       height: 100svh
@@ -45,7 +83,40 @@ import mainVisualLogo from '@/assets/img/logo-mark.svg';
         &.is-show
           opacity 1
           transform translateY(0)
-    .sec 
+
+    .skillNav
+      display flex
+      flex-wrap wrap
+      justify-content center
+      gap 8px
+      margin-top 16px
+
+    .skillBtn
+      font-family 'Montserrat', sans-serif
+      font-size 11px
+      font-weight 600
+      letter-spacing 0.5px
+      color rgba(176, 232, 255, 0.7)
+      background rgba(0, 229, 255, 0.04)
+      border 1px solid rgba(0, 229, 255, 0.2)
+      border-radius 20px
+      padding 5px 14px
+      cursor pointer
+      backdrop-filter blur(4px)
+      transition all 0.3s ease
+      text-shadow none
+      &:hover
+        color #00e5ff
+        border-color rgba(0, 229, 255, 0.5)
+        background rgba(0, 229, 255, 0.1)
+        box-shadow 0 0 12px rgba(0, 229, 255, 0.15)
+      &.is-active
+        color #00e5ff
+        border-color rgba(0, 229, 255, 0.6)
+        background rgba(0, 229, 255, 0.12)
+        box-shadow 0 0 16px rgba(0, 229, 255, 0.25), inset 0 0 8px rgba(0, 229, 255, 0.06)
+
+    .sec
       position: relative
       z-index: 99
       background-image: linear-gradient(180deg,rgba(85, 85, 85, 0), rgba(0, 0, 0, 0.8))

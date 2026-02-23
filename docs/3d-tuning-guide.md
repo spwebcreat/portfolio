@@ -1,7 +1,7 @@
 # 3Dシーン調整ガイド
 
-> 対象ファイル: `src/components/ThreeModel/index.tsx`
-> 最終更新: 2026-02-21
+> 対象ファイル: `src/components/ThreeModel/index.tsx`, `SkillCrystal.tsx`
+> 最終更新: 2026-02-23
 
 天空の城（floating-castle.glb）の表示を調整するためのリファレンス。
 
@@ -173,56 +173,65 @@ const TIME_CONFIG = [
 
 ---
 
-## 5. 浮遊破片
+## 5. スキルの結晶（衛星軌道周回）
 
-> **注記（2026-02-22）**: 浮遊破片（Rock_Fragment_01〜05）はスキルの結晶に置き換え済み。
-> 結晶のアニメーション（浮遊・自転・脈動発光）は `SkillCrystal` コンポーネント内の `useFrame` で制御。
-> 以下のパラメータは旧実装のリファレンスとして残している。
+> **対象ファイル**: `src/components/ThreeModel/SkillCrystal.tsx`
 
-### 5-1. 初期位置
+5つのスキルクリスタルが城の周囲を衛星のように周回する。各クリスタルは異なる傾斜軌道を持つ。
 
-```tsx
-const FRAGMENT_BASE = [
-  { key: 'Rock_Fragment_01', pos: [1.00,  0.10,  0.57] },
-  { key: 'Rock_Fragment_02', pos: [-1.00, 0.30,  0.84] },
-  { key: 'Rock_Fragment_03', pos: [-0.92, -0.10, -0.77] },
-  { key: 'Rock_Fragment_04', pos: [0.93,  0.50, -1.11] },
-  { key: 'Rock_Fragment_05', pos: [0.00, -0.25,  1.60] },
-];
-```
-
-`pos` の値を変えると破片の初期配置が変わる。
-
-### 5-2. サイズ
+### 5-1. 軌道パラメータ（OrbitParams）
 
 ```tsx
-scale={0.01 * i + 0.05}
+orbit: {
+  radius: number,   // XZ平面の軌道半径
+  height: number,   // 基準Y座標
+  speed: number,    // 角速度 (rad/s)
+  phase: number,    // 初期角度オフセット (度)
+  tilt: number,     // 軌道面の傾斜角 (度)
+  tiltDir: number,  // 傾斜方向 (度)
+}
 ```
 
-| 破片 | i | scale | 結果 |
-|---|---|---|---|
-| Fragment_01 | 0 | 0.05 | 最小 |
-| Fragment_02 | 1 | 0.06 | |
-| Fragment_03 | 2 | 0.07 | |
-| Fragment_04 | 3 | 0.08 | |
-| Fragment_05 | 4 | 0.09 | 最大 |
+| Crystal | radius | height | speed | phase | tilt | tiltDir | 周期（約） |
+|---------|--------|--------|-------|-------|------|---------|-----------|
+| Frontend | 1.2 | 0.10 | 0.12 | 0° | 12° | 0° | 52秒 |
+| AI連携 | 1.3 | 0.20 | 0.10 | 72° | 18° | 120° | 63秒 |
+| CMS/FW | 1.1 | 0.00 | 0.14 | 144° | 15° | 240° | 45秒 |
+| Database | 1.4 | 0.30 | 0.08 | 216° | 22° | 60° | 79秒 |
+| Design | 1.5 | -0.10 | 0.11 | 288° | 10° | 180° | 57秒 |
 
-- **全体的に大きく** → `0.05` の部分を増やす（例: `0.01 * i + 0.1`）
-- **均一サイズ** → `scale={0.1}` のように固定値に
+#### 調整方法
 
-### 5-3. アニメーションパラメータ
+- **軌道を広げたい** → `radius` を大きくする
+- **周回を速くしたい** → `speed` を大きくする（0.08〜0.14 が自然な範囲）
+- **傾斜をつけたい** → `tilt` を大きくする（22°以上は城と重なるリスク）
+- **位相を調整** → `phase` を変更（5つが均等に分散: 0°, 72°, 144°, 216°, 288°）
 
-`useFrame` 内で制御:
+### 5-2. クリック時の停止/再開
 
-| コード | 現在値 | 説明 | 調整 |
-|---|---|---|---|
-| `clock.elapsedTime * 0.8` | `0.8` | ふわふわの速さ | 大きい=速い |
-| `i * 1.2` | `1.2` | 破片間の位相差 | 大きい=バラバラ感UP |
-| `* 0.03` | `0.03` | 上下の振幅 | 大きい=大きく動く |
-| `scroll * 1.5` | `1.5` | スクロールでの散らばり量 | 大きい=より広がる |
-| `scroll * 0.5` | `0.5` | スクロールでの沈む量 | 大きい=より沈む |
-| `0.03` | `0.03` | 自転の基本速度 | 大きい=速い |
-| `scroll * 0.05` | `0.05` | スクロールでの自転加速 | 大きい=加速が強い |
+クリスタルクリック（またはMainVisualのスキルボタン）で `isActive` が切り替わる。
+
+- **active時**: `velocityRef` → 0 にスムーズ減速（lerp factor 0.05）
+- **非active時**: `velocityRef` → `orbit.speed` にスムーズ加速
+
+```tsx
+const targetVelocity = isActive ? 0 : orbit.speed;
+velocityRef.current += (targetVelocity - velocityRef.current) * 0.05;
+```
+
+- **停止を速くしたい** → `0.05` を大きく（例: `0.1`）
+- **停止をゆっくり** → `0.05` を小さく（例: `0.02`）
+
+### 5-3. 浮遊・自転・発光
+
+軌道周回に加えて以下のアニメーションが重なる:
+
+| パラメータ | 値 | 説明 |
+|---|---|---|
+| 浮遊 `sin(t * 0.8) * 0.03` | 振幅 0.03 | Y座標の微小な上下 |
+| 自転 `+= 0.002` | 速度 0.002 | 偶数=時計回り、奇数=反時計回り |
+| 発光 `emissiveBase + sin(t * 1.5) * 1.8` | 振幅 1.8 | active時は ×2.0 |
+| スケール | 通常 0.12 / active 0.14 | クリック時に少し大きく |
 
 ---
 
@@ -475,9 +484,9 @@ GLBインポート時にマテリアルの emissive がデフォルト値にな�
 
 ## 13. ローディング画面・オープニング演出
 
-3Dモデルのロード中にローディング画面を表示し、ロード完了後に「霧の中から出現」するオープニング演出。
+3Dモデルのロード中にグリッチ演出付きのローディング画面を表示し、ロード完了後にカメラ演出 → 霧が晴れる流れで3Dシーンを表示する。
 
-### フェーズ管理
+### フェーズ管理（ThreeScene 側）
 
 ```tsx
 const [phase, setPhase] = useState<'loading' | 'fog' | 'ready'>('loading');
@@ -485,57 +494,87 @@ const [phase, setPhase] = useState<'loading' | 'fog' | 'ready'>('loading');
 
 | フェーズ | 表示状態 | 説明 |
 |---|---|---|
-| `loading` | ローディング画面 + 霧オーバーレイ | 3Dモデル読み込み中 |
-| `fog` | 霧オーバーレイ（フェードアウト中） | ロード完了。霧が晴れていく |
-| `ready` | 3Dシーンのみ | 全演出完了 |
+| `loading` | グリッチローディング画面 + 霧オーバーレイ | 3Dモデル読み込み中 |
+| `fog` | カメラ演出 + 霧オーバーレイ（フェードアウト中） | ロード完了。カメラが接近しながら霧が晴れる |
+| `ready` | 3Dシーンのみ | 全演出完了。OrbitControls + MouseParallax 有効化 |
 
-### LoadingScreen コンポーネント
+### LoadingGlitch コンポーネント（`LoadingGlitch.tsx`）
 
-drei の `useProgress` フックで Canvas 内のアセット読み込み進捗を取得。Canvas の**外**でHTML描画する。
+drei の `useProgress` フックで Canvas 内のアセット読み込み進捗を取得。Canvas の**外**でHTML/CSS描画する。
 
 ```tsx
-const { progress, loaded, total } = useProgress();
+const { progress } = useProgress();
 ```
+
+#### 演出フロー
+
+```
+[glitching] 0〜100%（3Dモデルロード中）
+  「SP WEBCREAT.」テキストがグリッチエフェクト付きで表示
+  → 進捗に応じてグリッチ強度が低下（1.0 → 0.0）
+  → スキャンラインオーバーレイ
+  → プログレスバー + カウントアップ（0% → 100%）
+
+[clean] 100% 到達後 1秒
+  グリッチ消失。テキストがクリーンに表示（シアン glow 強調）
+
+[fading] 600ms
+  CSS transition で opacity → 0 → onTransitionComplete コールバック
+  → ThreeScene 側: phase='fog' → CameraReveal + 霧フェードアウト → phase='ready'
+```
+
+#### グリッチエフェクト仕様
+
+| 要素 | 説明 |
+|---|---|
+| テキスト | HTML `<h1>` + Montserrat Bold。Canvas不使用のためフォント問題なし |
+| `::before` | 赤色（#ff0040）レイヤー。`clip-path: inset()` + `transform` でちらつき |
+| `::after` | シアン（#00e5ff）レイヤー。別タイミングのちらつき |
+| `--glitch-intensity` | CSS変数。進捗 0%=1.0 → 100%=0.0。pseudo要素の `opacity` に適用 |
+| スキャンライン | 2px間隔の水平線（`repeating-linear-gradient`）。進捗とともにフェードアウト |
+
+#### z-index 構造
 
 | 要素 | z-index | 説明 |
 |---|---|---|
-| `.loadingOverlay` | `200` | 黒背景 + プログレスバー + シアンSVGアニメーション |
+| `.loadingGlitch` | `200` | 黒背景 + グリッチテキスト + プログレス |
 | `.fogOverlay` | `199` | 放射グラデーション霧（ローディング後にフェードアウト） |
 | Canvas | `1` | 3Dシーン本体 |
 
-### タイミング調整
+### CameraReveal コンポーネント（`index.tsx` 内）
+
+ローディング完了後のカメラ接近演出。Canvas 内で動作する。
 
 ```tsx
-// ロード完了 → 500ms待機 → フェードアウト開始
-const timer = setTimeout(() => {
-  setFadeOut(true);
-  // フェードアウト → 1500ms後にコールバック
-  const removeTimer = setTimeout(onComplete, 1500);
-}, 500);
+const CAMERA_START = new THREE.Vector3(3, 4, 16);  // 遠景・俯瞰
+const CAMERA_END   = new THREE.Vector3(0, 0.5, 3);  // 最終位置（OrbitControls引き渡し）
 ```
 
-| パラメータ | 現在値 | 説明 |
-|---|---|---|
-| ロード完了後の待機 | `500ms` | すぐにフェードしない余白 |
-| ローディングフェードアウト | `1.5s` | CSS `transition: opacity 1.5s`（`.loadingOverlay`） |
-| 霧が晴れるまでの待ち | `2000ms` | `setPhase('fog')` → `setPhase('ready')` の間隔 |
-| 霧フェードアウト | `2s` | CSS `transition: opacity 2s`（`.fogOverlay`） |
+| フェーズ | カメラ動作 |
+|---|---|
+| `loading` | `CAMERA_START` に固定。3Dシーンはロード中（遠景で見えている） |
+| `fog` | `CAMERA_END` に向けて lerp（0.025）でスムーズにパン＆ズーム |
+| `ready` | 到達完了 → OrbitControls + MouseParallax に引き渡し |
 
-- **ローディング画面を早く消したい** → `500ms` / `1500ms` を短く
-- **霧が晴れる演出を長く** → `2000ms` / CSS `2s` を大きく
+- OrbitControls は `enabled={phase === 'ready'}` で reveal 中は無効
+- MouseParallax も `phase === 'ready'` でのみレンダリング
+
+### タイミング調整
+
+| パラメータ | 現在値 | 場所 | 説明 |
+|---|---|---|---|
+| グリッチ表示 | 0〜100%の間 | `LoadingGlitch.tsx` | ロード進捗に連動 |
+| クリーン表示 | `1000ms` | `LoadingGlitch.tsx` `CLEAN_DURATION` | 完成テキストの停止表示時間 |
+| フェードアウト | `600ms` | `LoadingGlitch.tsx` `FADE_DURATION` | CSS opacity transition |
+| カメラ接近速度 | `0.025` | `index.tsx` `CameraReveal` | lerp factor（大きいほど速い） |
+| 霧が晴れるまで | `2000ms` | `index.tsx` `handleLoadComplete` | `setPhase('fog')` → `setPhase('ready')` |
+| 霧フェードアウト | `2s` | `index.module.styl` `.fogOverlay` | CSS `transition: opacity 2s` |
+| テキスト出現イベント | `800ms` | `index.tsx` `handleLoadComplete` | `threemodel:reveal` 発火タイミング |
+
+- **ローディングを早く終わらせたい** → `CLEAN_DURATION` / `FADE_DURATION` を短く
+- **カメラ演出を速く** → lerp factor `0.025` を大きく（例: `0.05`）
+- **霧演出を長く** → `2000ms` / CSS `2s` を大きく
 - **霧の色を変えたい** → `.fogOverlay` の `background` グラデーションを変更
-
-### プログレスバー
-
-```css
-.loadingBar
-  height 100%
-  background #00e5ff
-  transition width 0.3s ease
-```
-
-- **バーの色変更** → `background` を変更
-- **バーの滑らかさ変更** → `transition` の duration を変更
 
 ---
 
@@ -567,9 +606,12 @@ const timer = setTimeout(() => {
 
 `<primitive object={nodes.Rock_Base} />` を使うこと。`<mesh geometry={...} material={...} />` だとGLBの元トランスフォームが失われる。
 
-### 破片が見えない / 大きすぎる
+### クリスタルの軌道がおかしい / 城と重なる
 
-`scale` の値を調整。現在は `0.01 * i + 0.05`（0.05〜0.09）。
+`SkillCrystal.tsx` の `SKILL_CRYSTALS` 内の `orbit` パラメータを調整。
+- `radius` を大きくして離す
+- `tilt` を小さくして傾斜を減らす
+- `height` で上下位置を調整
 
 ### マウスパララックスが効かない
 
@@ -582,26 +624,31 @@ OrbitControls がカメラ位置を上書きしている可能性がある。`en
 ```
 ThreeScene (export default)
 ├── Canvas
+│   ├── CameraReveal         ← ローディング後のカメラ パン&ズーム演出
 │   ├── SceneLighting        ← 時間変化ライティング + シアン脈動
 │   │   ├── ambientLight     ← スクロールで色・強さ変化
 │   │   ├── directionalLight ← スクロールで強さ変化
 │   │   └── pointLight       ← スクロールで強さ変化 + sin脈動
 │   ├── NightSky             ← 星空（スクロール40%以降で visible）
 │   │   └── Stars
-│   ├── MouseParallax        ← マウス追従カメラ
+│   ├── MouseParallax        ← マウス追従カメラ（phase=ready のみ）
 │   ├── Cloud × 2            ← 霧・モヤ演出
 │   ├── ScrollSparkles       ← パーティクル（スクロール速度連動）
 │   │   └── Sparkles
 │   ├── Float → Model        ← 城 + 結晶 + スケール演出アセット
 │   │   ├── Castle（floating-castle.glb）
-│   │   ├── SkillCrystal × 5（ホバーインタラクション付き）
+│   │   ├── SkillCrystal × 5（衛星軌道周回）
 │   │   ├── DroneScout（周回飛行）
 │   │   ├── OrbitalRing（遠景半透明リング）
-│   │   ├── TinyWanderer（歩行アニメーション）
 │   │   └── MechanicalBirds × 7（群れ飛行）
-│   └── OrbitControls        ← ドラッグ操作
-├── LoadingScreen            ← ローディング画面（Canvas外HTML）
+│   └── OrbitControls        ← ドラッグ操作（phase=ready のみ有効）
+├── CrystalDetailPanel       ← スキル詳細パネル（下からスライドアップ）
+├── LoadingGlitch            ← グリッチローディング画面（phase=loading のみ表示）
 └── fogOverlay               ← 霧オーバーレイ（CSSフェードアウト）
+
+MainVisual (Astro)
+└── skillNav                 ← スキルボタン（CustomEvent で ThreeScene と連携）
+    └── skillBtn × 5         ← crystal:activate / crystal:statechange
 ```
 
 ---
@@ -609,7 +656,8 @@ ThreeScene (export default)
 ## 現在の実装値サマリー
 
 ```
-カメラ:         position=[0, 0.5, 10]  fov=45
+カメラ初期:     position=[3, 4, 16]  fov=45  ← CameraReveal 開始位置
+カメラ最終:     position=[0, 0.5, 3]  ← CameraReveal 到達 → OrbitControls引き渡し
 ズーム制限:      min=3  max=3（固定）
 モデルオフセット:  [0, -1, 0]
 
@@ -628,9 +676,10 @@ pointLight:       intensity=3    color=#00e5ff  distance=3  decay=2
 --- Float ---
 speed=1  rotationIntensity=0.5  floatIntensity=0.5  range=[-0.1, 0.5]
 
---- 破片（→ スキルの結晶に置き換え済み）---
-旧: scale=0.01*i+0.05  ふわふわ=0.8/0.03  自転=0.03
-現: SkillCrystal コンポーネントで個別制御
+--- スキルの結晶（衛星軌道周回）---
+radius=1.1〜1.5  speed=0.08〜0.14 rad/s  tilt=10〜22°
+停止/再開: lerp factor 0.05  浮遊振幅=0.03  自転=0.002
+詳細パネル: 下からスライドアップ（PC/SP共通）max-height=50vh
 
 --- スクロール回転 ---
 0 → π*0.8 (約144度)
@@ -652,10 +701,12 @@ count=300  scale=10  size=6  speed=0.4  opacity=0.5  color=#00e5ff
 --- 星空 ---
 radius=50  count=3000  factor=3  表示開始=scroll 40%以降（visible切替）
 
---- ローディング ---
-フェーズ: loading → fog → ready
-ロード完了待機: 500ms → フェードアウト: 1.5s → 霧晴れ: 2s
-z-index: loadingOverlay=200  fogOverlay=199  canvas=1
+--- ローディング（グリッチ演出） ---
+フェーズ: loading(glitching→clean→fading) → fog(カメラ演出) → ready
+グリッチ強度: 進捗0%=1.0 → 100%=0.0（CSS変数 --glitch-intensity）
+クリーン表示: 1000ms  フェードアウト: 600ms  霧晴れ: 2s
+カメラ演出: [3,4,16] → [0,0.5,3] lerp=0.025
+z-index: loadingGlitch=200  fogOverlay=199  canvas=1
 
 --- レンダラー ---
 toneMapping: ACESFilmicToneMapping
