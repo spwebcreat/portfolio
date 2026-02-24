@@ -14,7 +14,6 @@ const skillButtons = [
   <section class="mainvisual">
 
 		<h2 class="mainvisualInfo font-extrabold grid gap-y-2">
-			<span class="text-lg text-center">Web Engineer</span>
 			<div class="title flex flex-col place-items-center gap-2 text-4xl md:text-6xl md:flex-row">
 				<Image src={mainVisualLogo} alt="logo" />
 				SP WEB CREAT.
@@ -80,6 +79,8 @@ const skillButtons = [
         left: 50%
         z-index: 99
         text-shadow 0 0 10px rgba(0,0,0,0.5)
+        @media (max-width: 768px)
+          width: 100%
         &.is-show
           opacity 1
           transform translateY(0)
