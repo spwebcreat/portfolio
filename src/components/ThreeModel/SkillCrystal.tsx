@@ -4,72 +4,27 @@ import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
 import styl from './index.module.styl'
 
+import skillsData from '@/data/skills.json'
+import type { SkillEntry, OrbitParams } from '@/data/skillTypes'
+export type { OrbitParams }
+
 // --- Data ---
 
 // 全クリスタル共通の公転速度（等間隔を維持するため統一）
 export const SHARED_ORBIT_SPEED = 0.10 // rad/s
 
-export interface OrbitParams {
-  radius: number
-  height: number
-  speed: number   // rad/s（後方互換用・実際はSHARED_ORBIT_SPEEDを使用）
-  phase: number   // 初期角度オフセット (度)
-  tilt: number    // 軌道面の傾斜角 (度)
-  tiltDir: number // 傾斜方向 (度)
-}
-
-export const SKILL_CRYSTALS = [
-  {
-    id: 'code-tablet',
-    model: '/models/crystal-code-tablet.glb',
-    orbit: { radius: 1.2, height: 0.10, speed: 0.12, phase: 0, tilt: 12, tiltDir: 0 },
-    title: 'Markup',
-    description: 'HTML/CSS/JS/TSによるモダンフロントエンド開発',
-    tags: ['HTML', 'CSS', 'JavaScript', 'TypeScript', 'Three.js', 'TailwindCSS'],
-    emissiveBase: 6.5,
-    lightColor: '#00e5ff',
-  },
-  {
-    id: 'ai-cube',
-    model: '/models/crystal-ai-cube.glb',
-    orbit: { radius: 1.3, height: 0.20, speed: 0.10, phase: 72, tilt: 18, tiltDir: 120 },
-    title: 'AI',
-    description: 'Claude API / Gemini APIを活用したAI機能開発',
-    tags: ['Claude API', 'Gemini API'],
-    emissiveBase: 6.0,
-    lightColor: '#22d3ee',
-  },
-  {
-    id: 'gear-nature',
-    model: '/models/crystal-gear-nature.glb',
-    orbit: { radius: 1.1, height: 0.00, speed: 0.14, phase: 144, tilt: 15, tiltDir: 240 },
-    title: 'CMS / FW',
-    description: 'WordPress構築・プラグイン開発・CMS自動化・Next.jsなどのフレームワーク経験',
-    tags: ['WordPress', 'PHP', 'REST API', 'Next.js', 'Astro.js'],
-    emissiveBase: 2.0,
-    lightColor: '#22d3ee',
-  },
-  {
-    id: 'database',
-    model: '/models/crystal-database.glb',
-    orbit: { radius: 1.4, height: 0.30, speed: 0.08, phase: 216, tilt: 22, tiltDir: 60 },
-    title: 'DB / Infra',
-    description: 'データベース設計からインフラ構築まで',
-    tags: ['MySQL', 'PostgreSQL', 'Supabase', 'Firebase', 'Docker', 'Vercel'],
-    emissiveBase: 5.0,
-    lightColor: '#22d3ee',
-  },
-  {
-    id: 'hologram-disc',
-    model: '/models/crystal-hologram-disc.glb',
-    orbit: { radius: 1.5, height: -0.10, speed: 0.11, phase: 288, tilt: 10, tiltDir: 180 },
-    title: 'Design',
-    description: 'ユーザー体験を重視したUI/UX/WEBデザイン',
-    tags: ['Figma', 'レスポンシブ', 'アクセシビリティ'],
-    emissiveBase: 2.5,
-    lightColor: '#22d3ee',
-  },
-] as const
+export const SKILL_CRYSTALS = (skillsData as SkillEntry[])
+  .filter(s => s.crystal !== null)
+  .map(s => ({
+    id: s.id,
+    model: s.crystal!.model,
+    orbit: s.crystal!.orbit,
+    title: s.title,
+    description: s.description,
+    tags: s.skillTags,
+    emissiveBase: s.crystal!.emissiveBase,
+    lightColor: s.crystal!.lightColor,
+  }))
 
 export type SkillCrystalData = (typeof SKILL_CRYSTALS)[number]
 

@@ -2,6 +2,7 @@
 import { Image } from 'astro:assets'
 import ProfileImage from '../../assets/img/profileimage.jpg'
 import { Icon } from 'astro-icon/components';
+import skillsData from '@/data/skills.json';
 ---
 
 
@@ -67,54 +68,16 @@ import { Icon } from 'astro-icon/components';
         </div>
 
         <div class="slills">
-
-          <div class="slill-item">
-            <h3 class="slill-item-title">Frontend</h3>
-            <ul>
-              <li>HTML</li>
-              <li>CSS</li>
-              <li>JavaScript</li>
-              <li>TypeScript</li>
-              <li>Three.js</li>
-              <li>TailwindCSS</li>
-              <li>Sass</li>
-              <li>Styles</li>
-            </ul>
-          </div>
-
-          <div class="slill-item">
-            <h3 class="slill-item-title">Framework</h3>
-            <ul>
-              <li>React</li>
-              <li>Next.js</li>
-              <li>Astro.js</li>
-              <li>Gatsby.js</li>
-              <li>Laravel</li>
-              <li>WordPress</li>
-            </ul>
-          </div>
-
-          <div class="slill-item">
-            <h3 class="slill-item-title">Database / Infrastructure</h3>
-            <ul>
-              <li>MySQL</li>
-              <li>PostgreSQL</li>
-              <li>Supabase</li>
-              <li>Firebase</li>
-              <li>Prisma</li>
-              <li>Docker</li>
-              <li>Vercel</li>
-            </ul>
-          </div>
-
-          <div class="slill-item">
-            <h3 class="slill-item-title">AI</h3>
-            <ul>
-              <li>Claude API</li>
-              <li>Gemini API</li>
-            </ul>
-          </div>
-
+          {skillsData.map((skill) => (
+            <div class="slill-item">
+              <h3 class="slill-item-title">{skill.aboutTitle}</h3>
+              <ul>
+                {skill.skillTags.map((tag) => (
+                  <li>{tag}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
 
       </div>

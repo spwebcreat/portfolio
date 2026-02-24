@@ -269,13 +269,11 @@ function resetParticle(
 
 // --- Main CastleReactions ---
 
-const EFFECT_MAP: Record<string, string> = {
-  'code-tablet': 'frontend',
-  'ai-cube': 'ai',
-  'gear-nature': 'wordpress',
-  'database': 'database',
-  'hologram-disc': 'uiux',
-}
+import skillsData from '@/data/skills.json'
+
+const EFFECT_MAP: Record<string, string> = Object.fromEntries(
+  skillsData.map(s => [s.id, s.effectKey])
+)
 
 export function CastleReactions({ activeCrystalId, innerGroupRef }: CastleReactionsProps) {
   const activeEffect = activeCrystalId ? EFFECT_MAP[activeCrystalId] ?? null : null

@@ -2,13 +2,8 @@
 import { Image } from 'astro:assets';
 import mainVisualLogo from '@/assets/img/logo-mark.svg';
 
-const skillButtons = [
-  { id: 'code-tablet', label: 'Markup' },
-  { id: 'ai-cube', label: 'AI' },
-  { id: 'gear-nature', label: 'CMS / FW' },
-  { id: 'database', label: 'DB / Infra' },
-  { id: 'hologram-disc', label: 'Design' },
-];
+import skillsData from '@/data/skills.json';
+const skillButtons = skillsData.map(s => ({ id: s.id, label: s.title }));
 ---
 
   <section class="mainvisual">
