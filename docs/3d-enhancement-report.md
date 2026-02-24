@@ -112,6 +112,32 @@ Nano Banana Pro（概念画像生成）→ Meshy AI（3Dモデル生成）→ Bl
 - **演出**: fog フェーズで lerp によるスムーズなパン&ズーム
 - OrbitControls / MouseParallax は `phase=ready` まで無効化
 
+### 塔上クリスタル + ライティング基準値 + 軌道等間隔化（2026-02-24）
+
+#### castle-crystal.glb 配置
+- `floating-castle-v5.glb` からクリスタルを削除し、別アセット `castle-crystal.glb`（2KB）として分離
+- 城の左右の塔上に2つ配置（`CastleCrystals` コンポーネント）
+- スクロール連動発光: `emissiveIntensity = (1.5 + scroll * 2.0) × pulse`（常時 Bloom グロウ）
+- ゆっくり自転（0.005/frame）+ 微小浮遊（sin 振幅 0.003、2つ目はフェーズずれ）
+- GLB のジオメトリ座標がワールド座標に焼き込まれていたため、`GEO_OFFSET` で原点センタリングして配置
+
+#### ライティング基準値の導入
+- `AMBIENT_BASE` / `DIR_BASE` / `CYAN_BASE` の3つの乗数を追加
+- TIME_CONFIG のカーブ形状を維持したまま、全体の明るさを一括スケール可能に
+- 城が暗すぎる問題に対して `AMBIENT_BASE=15.0`, `DIR_BASE=3.0` で解決
+
+#### スキルクリスタル軌道の等間隔化
+- 各クリスタルの `speed` がバラバラ（0.08〜0.14）で時間経過とともに固まる問題を修正
+- `SHARED_ORBIT_SPEED = 0.10`（共通角速度）を導入
+- 初期位相を `index × (360°/5)` で自動算出し、常に72°等間隔を保証
+- `anyActive` prop を追加: いずれかがクリック時に**全クリスタルが一斉に減速停止**（等間隔維持）
+
+#### スキルクリスタルのタイトル変更
+- Frontend → Markup
+- AI連携 → AI
+- CMS / Framework → CMS / FW
+- Database / Infra → DB / Infra
+
 ## 未着手タスク
 
 → `docs/r3f-knowledge.md` のロードマップを参照

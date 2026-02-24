@@ -36,8 +36,9 @@
 ## 3Dアセット
 
 ### 実装済みアセット一覧（public/models/）
-- floating-castle.glb — 城＋岩盤メイン
-- crystal-*.glb × 5 — スキルの結晶（衛星軌道周回 + クリックインタラクション）
+- floating-castle-v5.glb — 城＋岩盤メイン（クリスタル削除版）
+- castle-crystal.glb — 塔上クリスタル（2つ配置、スクロール連動発光）
+- crystal-*.glb × 5 — スキルの結晶（等間隔衛星軌道周回 + クリックインタラクション）
 - drone-scout.glb — 偵察ドローン
 - orbital-ring.glb — 巨大リング（遠景）
 - mechanical-bird.glb — 機械の鳥

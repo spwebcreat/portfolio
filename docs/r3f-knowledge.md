@@ -17,7 +17,7 @@ ThreeScene
 │   ├── MouseParallax（マウス追従カメラ / phase=ready のみ）
 │   ├── Cloud × 2（霧・モヤ演出）
 │   ├── ScrollSparkles（パーティクル / スクロール速度連動）
-│   ├── Float → Model（城 + 結晶 + スケール演出アセット）
+│   ├── Float → Model（城 + 塔上クリスタル + 結晶 + スケール演出アセット）
 │   └── OrbitControls（phase=ready のみ有効）
 ├── CrystalDetailPanel（スキル詳細 / 下からスライドアップ）
 ├── LoadingGlitch（グリッチローディング / phase=loading のみ表示）
@@ -28,8 +28,9 @@ MainVisual (Astro)
 ```
 
 ### 実装済みアセット
-- 城＆岩盤（floating-castle.glb）
-- スキルの結晶 × 5（衛星軌道周回 + クリックインタラクション + 詳細パネル）
+- 城＆岩盤（floating-castle-v5.glb）
+- 塔上クリスタル × 2（castle-crystal.glb — スクロール連動発光 + 常時 Bloom グロウ）
+- スキルの結晶 × 5（等間隔衛星軌道周回 + SHARED_ORBIT_SPEED + クリックインタラクション + 詳細パネル）
 - 偵察ドローン（周回飛行）
 - 巨大リング（遠景・半透明）
 - 機械の鳥（7羽群れ飛行）
@@ -40,6 +41,7 @@ MainVisual (Astro)
 - Dracoデコーダー: https://www.gstatic.com/draco/versioned/decoders/1.5.6/
 - アクセントカラー: #00e5ff
 - GLBプリロード: useGLTF.preload() で全モデル事前ロード
+- ライティング基準値: AMBIENT_BASE / DIR_BASE / CYAN_BASE で全体明るさを一括スケール
 
 ## 未着手タスク（ロードマップ）
 

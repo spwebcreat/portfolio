@@ -22,14 +22,22 @@ import styl from './index.module.styl';
 useGLTF.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
 
 const MODEL_URL = '/models/floating-castle-v5.glb';
+const CRYSTAL_URL = '/models/castle-crystal.glb';
+
+// ====== ライティング基準値（全体の明るさ調整はここ） ======
+// TIME_CONFIG のカーブ形状はそのまま、この乗数で一括スケール
+const AMBIENT_BASE = 5.0;  // 環境光 — 上げると全体が明るく
+const DIR_BASE     = 5.0;  // 太陽光 — 上げると陰影コントラスト強く
+const CYAN_BASE    = 1.0;  // シアン発光 — 上げると夜間グロウ強く
+// ===========================================================
 
 // スクロール時間変化の設定（朝→昼→夕→夜→深夜）
 const TIME_CONFIG = [
   { at: 0.00, ambient: new THREE.Color('#fff5e0'), intensity: 0.8, dirIntensity: 2.0, cyanIntensity: 3 },
   { at: 0.25, ambient: new THREE.Color('#ffffff'), intensity: 1.0, dirIntensity: 2.5, cyanIntensity: 3 },
   { at: 0.50, ambient: new THREE.Color('#ff8c42'), intensity: 0.7, dirIntensity: 1.5, cyanIntensity: 5 },
-  { at: 0.75, ambient: new THREE.Color('#1a1a3e'), intensity: 0.3, dirIntensity: 0.5, cyanIntensity: 8 },
-  { at: 1.00, ambient: new THREE.Color('#0a0a1a'), intensity: 0.15, dirIntensity: 0.2, cyanIntensity: 12 },
+  { at: 0.75, ambient: new THREE.Color('#e5e5ff'), intensity: 0.3, dirIntensity: 0.5, cyanIntensity: 8 },
+  { at: 1.00, ambient: new THREE.Color('#ffd500'), intensity: 0.15, dirIntensity: 0.2, cyanIntensity: 12 },
 ];
 
 // 2つのタイムポイント間を補間するユーティリティ
@@ -152,21 +160,21 @@ const SceneLighting = ({
     const ambientMul = timeLightingEnabled ? timeOfDay.ambientIntensity : 1.0;
     const cyanMul = timeLightingEnabled ? (0.5 + timeOfDay.cyanBoost * 0.5) : 0.5;
 
-    // 環境光: スクロール時間変化 × リアルタイム時間帯の影響
+    // 環境光: 基準値 × スクロール時間変化 × リアルタイム時間帯
     if (ambientRef.current) {
       ambientRef.current.color.copy(scrollTime.ambient);
-      ambientRef.current.intensity = scrollTime.intensity * ambientMul;
+      ambientRef.current.intensity = AMBIENT_BASE * scrollTime.intensity * ambientMul;
     }
 
-    // 方向光: スクロール時間変化 × リアルタイム時間帯
+    // 方向光: 基準値 × スクロール時間変化 × リアルタイム時間帯
     if (dirRef.current) {
-      dirRef.current.intensity = scrollTime.dirIntensity * ambientMul;
+      dirRef.current.intensity = DIR_BASE * scrollTime.dirIntensity * ambientMul;
     }
 
-    // シアン発光: スクロール時間変化 × リアルタイムcyanBoost × 脈動 × DB boost
+    // シアン発光: 基準値 × スクロール時間変化 × リアルタイムcyanBoost × 脈動 × DB boost
     if (cyanRef.current) {
       const pulse = Math.sin(clock.elapsedTime * 1.2) * 0.3 + 1; // 0.7〜1.3
-      cyanRef.current.intensity = scrollTime.cyanIntensity * cyanMul * pulse * dbBoostRef.current;
+      cyanRef.current.intensity = CYAN_BASE * scrollTime.cyanIntensity * cyanMul * pulse * dbBoostRef.current;
     }
   });
 
@@ -213,6 +221,71 @@ const NightSky = ({ scrollYProgress }: { scrollYProgress: any }) => {
         speed={0.5}
       />
     </group>
+  );
+};
+
+// 城の塔上に配置するクリスタル（スクロール連動発光 + 回転 + 浮遊）
+const CastleCrystals = ({ scrollYProgress }: { scrollYProgress: any }) => {
+  const { scene } = useGLTF(CRYSTAL_URL);
+  const ref1 = useRef<THREE.Group>(null);
+  const ref2 = useRef<THREE.Group>(null);
+  const scrollRef = useRef(0);
+
+  const clone1 = React.useMemo(() => scene.clone(true), [scene]);
+  const clone2 = React.useMemo(() => scene.clone(true), [scene]);
+
+  React.useEffect(() => {
+    return scrollYProgress.on('change', (v: number) => { scrollRef.current = v; });
+  }, [scrollYProgress]);
+
+  // GLB 内ジオメトリのバウンディングボックス中心（焼き込み座標）
+  // 回転軸を自身の中心にするため、primitive にオフセットを掛けて原点にセンタリング
+  const GEO_OFFSET: [number, number, number] = [0.713, -0.293, -0.019];
+
+  // 配置位置（R3F 座標系）— 目視で微調整可
+  const POSITIONS: [number, number, number][] = [
+    [-0.74, 0.14, 0.04],  // 左塔 x , y , z
+    [0.738, 0.12, 0.02],   // 右塔
+  ];
+
+  useFrame(({ clock }) => {
+    const scroll = scrollRef.current;
+    const t = clock.elapsedTime;
+
+    // スクロール連動 emissive: 1.5（朝・常時グロウ）→ 3.5（深夜・強烈）
+    const scrollBase = 1.5 + scroll * 2.0;
+    // 脈動（シアン pointLight と同リズム）
+    const pulse = Math.sin(t * 1.2) * 0.3 + 1;
+    const emissiveIntensity = scrollBase * pulse;
+
+    [ref1, ref2].forEach((ref, i) => {
+      if (!ref.current) return;
+      // マテリアルの emissiveIntensity を更新
+      ref.current.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          const mat = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
+          if (mat.emissive) {
+            mat.emissiveIntensity = emissiveIntensity;
+          }
+        }
+      });
+      // ゆっくり回転
+      ref.current.rotation.y += 0.005;
+      // 浮遊（2つ目はフェーズをずらす）
+      const phaseOffset = i * 1.5;
+      ref.current.position.y = POSITIONS[i][1] + Math.sin((t + phaseOffset) * 0.8) * 0.003;
+    });
+  });
+
+  return (
+    <>
+      <group ref={ref1} position={POSITIONS[0]} scale={1.8}>
+        <primitive object={clone1} position={GEO_OFFSET} />
+      </group>
+      <group ref={ref2} position={POSITIONS[1]} scale={1.8}>
+        <primitive object={clone2} position={GEO_OFFSET} />
+      </group>
+    </>
   );
 };
 
@@ -311,6 +384,8 @@ const Model = ({
       <group ref={innerGroupRef} position={[0, -0.2, 0]}>
         {/* 城＋岩盤（Mesh_0 一体構造） */}
         <primitive object={nodes.Mesh_0} />
+        {/* 塔上クリスタル（スクロール連動発光） */}
+        <CastleCrystals scrollYProgress={scrollYProgress} />
         {/* 城リアクション */}
         <CastleReactions
           activeCrystalId={activeCrystalId}
@@ -329,6 +404,7 @@ const Model = ({
               emissiveBase={crystal.emissiveBase}
               lightColor={crystal.lightColor}
               isActive={activeCrystalId === crystal.id}
+              anyActive={activeCrystalId !== null}
               onActivate={onActivateCrystal}
             />
           ))}
@@ -430,6 +506,7 @@ const CyanBoostDriver = ({
 };
 
 useGLTF.preload(MODEL_URL);
+useGLTF.preload(CRYSTAL_URL);
 
 // カメラ reveal 演出（パン & ズーム）
 const CAMERA_START = new THREE.Vector3(3, 4, 16);
@@ -578,18 +655,18 @@ export default function ThreeScene() {
         {/* 霧・モヤ演出（ラピュタ風） */}
         <Cloud
           position={[0, -0.5, 0]}
-          opacity={0.15}
+          opacity={0.05}
           speed={0.2}
           bounds={[4, 1, 1.5]}
-          segments={12}
+          segments={5}
           color="#b0e8ff"
         />
         <Cloud
           position={[1, 0.3, -1]}
-          opacity={0.1}
+          opacity={0.05}
           speed={0.15}
           bounds={[3, 1, 1]}
-          segments={8}
+          segments={3}
           color="#e0f0ff"
         />
         {/* パーティクル（スクロール速度連動・ブルーム除外） */}

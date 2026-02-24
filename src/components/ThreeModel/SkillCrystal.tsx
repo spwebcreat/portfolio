@@ -6,10 +6,13 @@ import styl from './index.module.styl'
 
 // --- Data ---
 
+// 全クリスタル共通の公転速度（等間隔を維持するため統一）
+export const SHARED_ORBIT_SPEED = 0.10 // rad/s
+
 export interface OrbitParams {
   radius: number
   height: number
-  speed: number   // rad/s
+  speed: number   // rad/s（後方互換用・実際はSHARED_ORBIT_SPEEDを使用）
   phase: number   // 初期角度オフセット (度)
   tilt: number    // 軌道面の傾斜角 (度)
   tiltDir: number // 傾斜方向 (度)
@@ -20,7 +23,7 @@ export const SKILL_CRYSTALS = [
     id: 'code-tablet',
     model: '/models/crystal-code-tablet.glb',
     orbit: { radius: 1.2, height: 0.10, speed: 0.12, phase: 0, tilt: 12, tiltDir: 0 },
-    title: 'Frontend',
+    title: 'Markup',
     description: 'HTML/CSS/JS/TSによるモダンフロントエンド開発',
     tags: ['HTML', 'CSS', 'JavaScript', 'TypeScript', 'Three.js', 'TailwindCSS'],
     emissiveBase: 6.5,
@@ -30,7 +33,7 @@ export const SKILL_CRYSTALS = [
     id: 'ai-cube',
     model: '/models/crystal-ai-cube.glb',
     orbit: { radius: 1.3, height: 0.20, speed: 0.10, phase: 72, tilt: 18, tiltDir: 120 },
-    title: 'AI連携',
+    title: 'AI',
     description: 'Claude API / Gemini APIを活用したAI機能開発',
     tags: ['Claude API', 'Gemini API'],
     emissiveBase: 6.0,
@@ -40,7 +43,7 @@ export const SKILL_CRYSTALS = [
     id: 'gear-nature',
     model: '/models/crystal-gear-nature.glb',
     orbit: { radius: 1.1, height: 0.00, speed: 0.14, phase: 144, tilt: 15, tiltDir: 240 },
-    title: 'CMS / Framework',
+    title: 'CMS / FW',
     description: 'WordPress構築・プラグイン開発・CMS自動化・Next.jsなどのフレームワーク経験',
     tags: ['WordPress', 'PHP', 'REST API', 'Next.js', 'Astro.js'],
     emissiveBase: 2.0,
@@ -50,7 +53,7 @@ export const SKILL_CRYSTALS = [
     id: 'database',
     model: '/models/crystal-database.glb',
     orbit: { radius: 1.4, height: 0.30, speed: 0.08, phase: 216, tilt: 22, tiltDir: 60 },
-    title: 'Database / Infra',
+    title: 'DB / Infra',
     description: 'データベース設計からインフラ構築まで',
     tags: ['MySQL', 'PostgreSQL', 'Supabase', 'Firebase', 'Docker', 'Vercel'],
     emissiveBase: 5.0,
@@ -81,18 +84,21 @@ interface SkillCrystalProps {
   lightColor: string
   index: number
   isActive: boolean
+  anyActive: boolean // いずれかのクリスタルがアクティブ→全体減速
   onActivate: (id: string | null) => void
 }
 
 export function SkillCrystal({
   id, model, orbit, title, emissiveBase, lightColor,
-  index, isActive, onActivate,
+  index, isActive, anyActive, onActivate,
 }: SkillCrystalProps) {
   const { scene } = useGLTF(model)
   const meshRef = useRef<THREE.Group>(null)
   const pointLightRef = useRef<THREE.PointLight>(null)
-  const angleRef = useRef(orbit.phase * (Math.PI / 180))
-  const velocityRef = useRef(orbit.speed)
+  // 等間隔: index × (360°/N) で初期位相を設定
+  const N = SKILL_CRYSTALS.length
+  const angleRef = useRef(index * (2 * Math.PI / N))
+  const velocityRef = useRef(SHARED_ORBIT_SPEED)
 
   const clonedScene = useMemo(() => scene.clone(), [scene])
 
@@ -131,8 +137,8 @@ export function SkillCrystal({
     if (!meshRef.current) return
     const t = clock.elapsedTime
 
-    // 角速度のスムーズ遷移（active時は減速、非active時は加速）
-    const targetVelocity = isActive ? 0 : orbit.speed
+    // 角速度のスムーズ遷移（いずれかがactive→全体減速で等間隔維持）
+    const targetVelocity = anyActive ? 0 : SHARED_ORBIT_SPEED
     velocityRef.current += (targetVelocity - velocityRef.current) * 0.05
 
     // 角度を更新
