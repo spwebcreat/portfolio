@@ -102,7 +102,7 @@ function useTimeOfDay() {
 }
 
 // マウス追従パララックス
-const MouseParallax = () => {
+const MouseParallax = ({ isInStoryRef }: { isInStoryRef?: React.MutableRefObject<boolean> }) => {
   const { camera } = useThree();
   const mouse = useRef({ x: 0, y: 0 });
   const basePos = useRef(new THREE.Vector3(0, 0, 10));
@@ -119,6 +119,7 @@ const MouseParallax = () => {
   }, [camera]);
 
   useFrame(() => {
+    if (isInStoryRef?.current) return;
     // マウス位置に応じてカメラを微妙にずらす（lerp でなめらかに追従）
     const targetX = basePos.current.x + mouse.current.x * 0.8;
     const targetY = basePos.current.y - mouse.current.y * 0.4;
@@ -136,12 +137,18 @@ const SceneLighting = ({
   timeLightingEnabled,
   weatherMultipliers,
   weatherEnabled,
+  isInStoryRef,
+  storyActiveBlockRef,
+  storyProgressRef,
 }: {
   scrollYProgress: any
   activeCrystalId: string | null
   timeLightingEnabled: boolean
   weatherMultipliers: WeatherMultipliers | null
   weatherEnabled: boolean
+  isInStoryRef: React.MutableRefObject<boolean>
+  storyActiveBlockRef: React.MutableRefObject<number>
+  storyProgressRef: React.MutableRefObject<number>
 }) => {
   const ambientRef = useRef<THREE.AmbientLight>(null);
   const dirRef = useRef<THREE.DirectionalLight>(null);
@@ -197,6 +204,31 @@ const SceneLighting = ({
     if (cyanRef.current) {
       const pulse = Math.sin(clock.elapsedTime * 1.2) * 0.3 + 1; // 0.7〜1.3
       cyanRef.current.intensity = CYAN_BASE * scrollTime.cyanIntensity * cyanMul * pulse * dbBoostRef.current * wCyanRef.current;
+    }
+
+    // --- Story エフェクト — 既存ライティングに乗算/加算 ---
+    if (isInStoryRef.current) {
+      const block = storyActiveBlockRef.current;
+      const p = storyProgressRef.current;
+
+      // Block 1: シアン発光が強まる
+      if (block === 1 && cyanRef.current) {
+        cyanRef.current.intensity *= 1.4;
+      }
+
+      // Block 3: シアン + ambient にシアン色味
+      if (block === 3) {
+        if (cyanRef.current) cyanRef.current.intensity *= 1.3;
+        if (ambientRef.current) {
+          ambientRef.current.color.lerp(new THREE.Color('#0a2a33'), 0.03);
+        }
+      }
+
+      // Block 4: 全体発光バースト
+      if (block === 4 && cyanRef.current) {
+        const burstPhase = Math.sin(p * Math.PI * 3) * 0.5 + 0.5;
+        cyanRef.current.intensity += burstPhase * 3;
+      }
     }
   });
 
@@ -316,11 +348,13 @@ const Model = ({
   activeCrystalId,
   onActivateCrystal,
   cyanBoostRef,
+  storyActiveBlockRef,
 }: {
   scrollYProgress: any
   activeCrystalId: string | null
   onActivateCrystal: (id: string | null) => void
   cyanBoostRef: React.MutableRefObject<number>
+  storyActiveBlockRef?: React.MutableRefObject<number>
 }) => {
   const group = useRef<THREE.Group>(null);
   const innerGroupRef = useRef<THREE.Group>(null);
@@ -428,6 +462,7 @@ const Model = ({
               isActive={activeCrystalId === crystal.id}
               anyActive={activeCrystalId !== null}
               onActivate={onActivateCrystal}
+              storyActiveBlockRef={storyActiveBlockRef}
             />
           ))}
         </Suspense>
@@ -578,6 +613,70 @@ const CameraReveal = ({ phase }: { phase: 'loading' | 'fog' | 'ready' }) => {
   return null;
 };
 
+// OrbitControls の有効/無効を useFrame で ref 制御
+const OrbitControlsManager = ({
+  phase,
+  isInStoryRef,
+}: {
+  phase: 'loading' | 'fog' | 'ready'
+  isInStoryRef: React.MutableRefObject<boolean>
+}) => {
+  const controlsRef = useRef<any>(null);
+
+  useFrame(() => {
+    if (!controlsRef.current) return;
+    controlsRef.current.enabled = phase === 'ready' && !isInStoryRef.current;
+    if (!isInStoryRef.current && controlsRef.current.enabled) {
+      controlsRef.current.update();
+    }
+  });
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      enableZoom={true}
+      minDistance={3}
+      maxDistance={3}
+      enabled={false}
+    />
+  );
+};
+
+// Story 区間のカメラパス制御
+const StoryCamera = ({
+  isInStoryRef,
+  storyProgressRef,
+}: {
+  isInStoryRef: React.MutableRefObject<boolean>
+  storyProgressRef: React.MutableRefObject<number>
+}) => {
+  const { camera } = useThree();
+
+  const STORY_CAMERA_PATH = React.useMemo(() => new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, 0.5, 3),       // 正面（CameraReveal の到達点）
+    new THREE.Vector3(2.2, 0.2, 1.8),   // 右前方
+    new THREE.Vector3(2.5, -0.1, -0.5), // 右側面やや下
+    new THREE.Vector3(0.5, 0.3, -2.2),  // 背面
+    new THREE.Vector3(-1.8, 1.0, -0.8), // 左後方（見上げ）
+    new THREE.Vector3(-2.0, 0.6, 1.2),  // 左前方
+    new THREE.Vector3(0, 0.5, 3),       // 正面に戻る
+  ], false, 'catmullrom', 0.5), []);
+
+  const CAMERA_TARGET = React.useMemo(() => new THREE.Vector3(0, -0.2, 0), []);
+  const tmpPos = React.useRef(new THREE.Vector3());
+
+  useFrame(() => {
+    if (!isInStoryRef.current) return;
+
+    const p = Math.max(0, Math.min(1, storyProgressRef.current));
+    STORY_CAMERA_PATH.getPointAt(p, tmpPos.current);
+    camera.position.lerp(tmpPos.current, 0.08);
+    camera.lookAt(CAMERA_TARGET);
+  });
+
+  return null;
+};
+
 // --- 2D Detail Panel ---
 function CrystalDetailPanel({
   activeCrystalId,
@@ -620,6 +719,50 @@ export default function ThreeScene() {
   const [manualOverride, setManualOverride] = useState<WeatherCategory | null>(null);
   const cyanBoostRef = useRef(0.3);
   const isMobile = useMobile();
+
+  // --- Story セクションからの進捗を受信 ---
+  const storyProgressRef = useRef(0);
+  const storyActiveBlockRef = useRef(-1);
+  const isInStoryRef = useRef(false);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      storyProgressRef.current = detail.progress;
+      storyActiveBlockRef.current = detail.activeBlock;
+      isInStoryRef.current = detail.progress > 0 && detail.progress < 1;
+    };
+    window.addEventListener('story:progress', handler);
+    return () => window.removeEventListener('story:progress', handler);
+  }, []);
+
+  // Story 終了位置（= main-content 先頭）の scrollYProgress 換算値
+  const storyEndRef = useRef(0.3); // フォールバック値
+
+  useEffect(() => {
+    function calcStoryEnd() {
+      const main = document.querySelector('.main-content');
+      if (!main) return;
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      if (scrollable <= 0) return;
+      storyEndRef.current = (main as HTMLElement).offsetTop / scrollable;
+    }
+    calcStoryEnd();
+    window.addEventListener('resize', calcStoryEnd);
+    window.addEventListener('load', calcStoryEnd);
+    return () => {
+      window.removeEventListener('resize', calcStoryEnd);
+      window.removeEventListener('load', calcStoryEnd);
+    };
+  }, []);
+
+  // Story 区間を除外した adjustedProgress（既存ロジック用）
+  const adjustedProgress = useTransform(scrollYProgress, (v: number) => {
+    const storyEnd = storyEndRef.current;
+    if (storyEnd <= 0 || storyEnd >= 1) return v;
+    if (v <= storyEnd) return 0;
+    return (v - storyEnd) / (1 - storyEnd);
+  });
 
   const { weather, location, isLoading, isGeolocating, setLocation } = useWeather({
     enabled: weatherEnabled,
@@ -694,13 +837,17 @@ export default function ThreeScene() {
         onPointerMissed={() => setActiveCrystalId(null)}
       >
         {/* ライティング（時間変化 + シアン脈動 + DB boost） */}
-        <SceneLighting scrollYProgress={scrollYProgress} activeCrystalId={activeCrystalId} timeLightingEnabled={timeLightingEnabled} weatherMultipliers={weather?.multipliers ?? null} weatherEnabled={weatherEnabled} />
+        <SceneLighting scrollYProgress={adjustedProgress} activeCrystalId={activeCrystalId} timeLightingEnabled={timeLightingEnabled} weatherMultipliers={weather?.multipliers ?? null} weatherEnabled={weatherEnabled} isInStoryRef={isInStoryRef} storyActiveBlockRef={storyActiveBlockRef} storyProgressRef={storyProgressRef} />
         {/* 星空背景（夜に浮かび上がる） */}
-        <NightSky scrollYProgress={scrollYProgress} />
+        <NightSky scrollYProgress={adjustedProgress} />
         {/* カメラ reveal 演出（ローディング後にパン＆ズーム） */}
         <CameraReveal phase={phase} />
         {/* マウス追従パララックス（reveal 完了後のみ動作） */}
-        {phase === 'ready' && <MouseParallax />}
+        {phase === 'ready' && <MouseParallax isInStoryRef={isInStoryRef} />}
+        {/* Story 区間のカメラパス制御 */}
+        {phase === 'ready' && (
+          <StoryCamera isInStoryRef={isInStoryRef} storyProgressRef={storyProgressRef} />
+        )}
         {/* 霧・モヤ演出（ラピュタ風）— 天気に応じて不透明度・色を変化 */}
         {(() => {
           const boost = (weatherEnabled && weather) ? weather.multipliers.cloudOpacityBoost : 0;
@@ -743,7 +890,7 @@ export default function ThreeScene() {
         })()}
         {/* パーティクル（スクロール速度連動・ブルーム除外） */}
         <BloomExcluded>
-          <ScrollSparkles scrollYProgress={scrollYProgress} />
+          <ScrollSparkles scrollYProgress={adjustedProgress} />
         </BloomExcluded>
         {/* 雨パーティクル（天気連動・ブルーム除外） */}
         {weatherEnabled && weather && weather.multipliers.rainIntensity > 0 && (
@@ -759,14 +906,15 @@ export default function ThreeScene() {
           floatingRange={[-0.1, 0.5]}
         >
           <Model
-            scrollYProgress={scrollYProgress}
+            scrollYProgress={adjustedProgress}
             activeCrystalId={activeCrystalId}
             onActivateCrystal={setActiveCrystalId}
             cyanBoostRef={cyanBoostRef}
+            storyActiveBlockRef={storyActiveBlockRef}
           />
         </Float>
         {/* スケール感演出アセット */}
-        <CyanBoostDriver scrollYProgress={scrollYProgress} cyanBoostRef={cyanBoostRef} />
+        <CyanBoostDriver scrollYProgress={adjustedProgress} cyanBoostRef={cyanBoostRef} />
         <Suspense fallback={null}>
           <DroneScout cyanBoostRef={cyanBoostRef} />
         </Suspense>
@@ -778,12 +926,7 @@ export default function ThreeScene() {
         <Suspense fallback={null}>
           <MechanicalBirds cyanBoostRef={cyanBoostRef} isMobile={isMobile} />
         </Suspense>
-        <OrbitControls
-          enableZoom={true}
-          minDistance={3}
-          maxDistance={3}
-          enabled={phase === 'ready'}
-        />
+        <OrbitControlsManager phase={phase} isInStoryRef={isInStoryRef} />
         {/* ポストプロセス: Bloom（クリスタル等の高輝度オブジェクトのみグロウ） */}
         <EffectComposer multisampling={0}>
           <Bloom

@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react'
+import React, { useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useGLTF, Html } from '@react-three/drei'
 import * as THREE from 'three'
@@ -41,11 +41,12 @@ interface SkillCrystalProps {
   isActive: boolean
   anyActive: boolean // いずれかのクリスタルがアクティブ→全体減速
   onActivate: (id: string | null) => void
+  storyActiveBlockRef?: React.MutableRefObject<number>
 }
 
 export function SkillCrystal({
   id, model, orbit, title, emissiveBase, lightColor,
-  index, isActive, anyActive, onActivate,
+  index, isActive, anyActive, onActivate, storyActiveBlockRef,
 }: SkillCrystalProps) {
   const { scene } = useGLTF(model)
   const meshRef = useRef<THREE.Group>(null)
@@ -125,7 +126,8 @@ export function SkillCrystal({
 
     // 脈動する発光（振幅拡大）
     const pulse = emissiveBase + Math.sin(t * 1.5 + index * 1.8) * 0.8
-    const intensity = isActive ? pulse * 2.0 : pulse
+    const storyBoost = storyActiveBlockRef?.current === 2 ? 2.0 : 1.0
+    const intensity = (isActive ? pulse * 2.0 : pulse) * storyBoost
     emissiveMats.forEach((mat) => {
       mat.emissiveIntensity = intensity
     })
