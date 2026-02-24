@@ -4,7 +4,7 @@
     "title": "Markup",
     "aboutTitle": "MarkUp",
     "description": "HTML/CSS/JS/TSによるモダンフロントエンド開発",
-    "skillTags": ["HTML", "CSS", "JavaScript", "TypeScript", "TailwindCSS", "Sass"],
+    "skillTags": ["HTML", "CSS", "JavaScript", "PHP", "TypeScript", "TailwindCSS", "Sass"],
     "effectKey": "frontend",
     "crystal": {
       "model": "/models/crystal-code-tablet.glb",
@@ -32,7 +32,7 @@
     "title": "CMS / FW",
     "aboutTitle": "Framework",
     "description": "WordPress構築・プラグイン開発・CMS自動化・Next.jsなどのフレームワーク経験",
-    "skillTags": ["React.js", "Next.js", "Astro.js", "Gatsby.js", "Three.js", "Laravel", "WordPress", "PHP"],
+    "skillTags": ["React.js", "Next.js", "Astro.js", "Gatsby.js", "Three.js", "Laravel", "WordPress"],
     "effectKey": "wordpress",
     "crystal": {
       "model": "/models/crystal-gear-nature.glb",
