@@ -138,6 +138,33 @@ Nano Banana Pro（概念画像生成）→ Meshy AI（3Dモデル生成）→ Bl
 - CMS / Framework → CMS / FW
 - Database / Infra → DB / Infra
 
+### Weather/Time UI 改善（2026-02-24）
+
+天気パネルのUX向上を目的とした4つの修正。
+
+#### 1. スキルパネル連動フェード
+- `.fixedLayer`（Weather + Time コントロールのラッパー）に `data-hidden` 属性を追加
+- `activeCrystalId !== null` 時に `opacity: 0` + `pointer-events: none` へ CSS transition（0.35s ease）
+- スキル詳細パネルと Weather/Time ボタンの重なりを解消
+
+#### 2. My Location ダブルクリック防止
+- `isGeolocatingRef`（ref）で `getCurrentPosition` 呼び出し中の重複リクエストをブロック
+- `isGeolocating`（state）をUIに伝搬 → ボタン `disabled` + 「Locating...」テキスト + パルスアニメーション
+
+#### 3. localStorage 永続化
+- ストレージキー: `sp-weather-location`
+- My Location 取得成功時（地名解決済み）に `{ lat, lon, name }` を保存
+- Tokyo 切替時にクリア
+- フォールバック名（`'My Location'`）は保存しない → 次回訪問で再試行
+- 逆ジオコーディングのリトライ（1回、1秒遅延）+ `city_district`/`municipality` フィールド追加
+
+#### 4. モバイルレスポンシブ
+- **折りたたみ状態**: 40px 円形ボタン2つ（Weather + Time）
+  - Weather ボタンは実際の天気アイコンを動的表示（パネルを開かずに天気がわかる）
+  - Time ボタンはタップで直接トグル
+- **展開状態**: Weather ON/OFF + Time ON/OFF + 天気ステータス + Location 切替 + Preview
+- PC では Time トグルは WeatherPanel 外に独立表示（従来通り）
+
 ## 未着手タスク
 
 → `docs/3d-tuning-guide.md` §15 のロードマップを参照

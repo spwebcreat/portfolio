@@ -32,7 +32,11 @@
 
 ```
 ThreeScene
-├── WeatherPanel（天気UI / トグル・位置切替・Preview セレクタ）
+├── .fixedLayer（data-hidden: スキルパネル展開時にフェードアウト）
+│   ├── WeatherPanel（天気UI / トグル・位置切替・Preview セレクタ）
+│   │   ├── [PC] デスクトップレイアウト（パネル + Weather/Time トグル）
+│   │   └── [SP] モバイルレイアウト（折りたたみアイコン ↔ 展開パネル）
+│   └── [PC のみ] Time トグルボタン（モバイルは WeatherPanel 内に統合）
 ├── Canvas
 │   ├── CameraReveal（ローディング後のカメラ パン&ズーム演出）
 │   ├── SceneLighting（時間変化 + 天気ライティング + シアン脈動）
@@ -800,6 +804,7 @@ outputColorSpace: SRGBColorSpace
 
 1. ~~**リアルタイム連動 レイヤー1: 時間帯**~~ — `useTimeOfDay` + Time ON/OFF トグル
 2. ~~**リアルタイム連動 レイヤー2: 天気API**~~ — Open-Meteo + Weather ON/OFF トグル + Preview セレクタ → `docs/adr-002-weather-api.md`
+3. ~~**Weather/Time UI 改善**~~ — スキルパネル連動フェード、My Location ダブルクリック防止、localStorage 永続化、モバイルレスポンシブ（アイコン折りたたみ ↔ 展開パネル）
 
 ### 優先度: 中
 

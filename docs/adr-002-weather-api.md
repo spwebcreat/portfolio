@@ -28,8 +28,14 @@
 
 - デフォルト: 東京（lat: 35.6762, lon: 139.6503）
 - 「My Location」ボタンで `navigator.geolocation` に切替
-- 逆ジオコーディング（Nominatim / OpenStreetMap）で座標→地名を自動取得
+- 逆ジオコーディング（Nominatim / OpenStreetMap）で座標→地名を自動取得（1回リトライ付き）
+  - アドレス解決: `city` → `city_district`(区) → `municipality` → `town` → `village` → `county` → `state`
 - ジオロケーション拒否・タイムアウト時は東京にフォールバック
+- **localStorage 永続化**（キー: `sp-weather-location`）
+  - My Location 取得成功時に座標+地名を保存 → 次回アクセスで自動復元
+  - Tokyo 切替時にクリア
+  - フォールバック名（`'My Location'`）は保存しない（次回訪問時に再試行させるため）
+- **ダブルクリック防止**: `isGeolocatingRef` で `getCurrentPosition` 呼び出し中の重複リクエストをガード。UIに `isGeolocating` state を伝搬し、ボタンを `disabled` + 「Locating...」テキスト + パルスアニメーションで表示
 
 ### 天気カテゴリとエフェクト
 
@@ -86,17 +92,39 @@ src/components/ThreeModel/
 
 ### UI 仕様
 
+#### デスクトップ
+
 ```
-画面右下（position: fixed, z-index: 500）:
+画面右下（.fixedLayer: position fixed, z-index 500）:
 
   [Weather Panel]
     ☀️ Tokyo 18°C 快晴     ← 天気ステータス（ロケーション名・気温・天気）
-    [Tokyo] [My Location]   ← 位置切替
+    [Tokyo] [My Location]   ← 位置切替（Locating中はdisabled+パルス）
     [Preview ▼]             ← 手動セレクタ開閉
       Clear|Clouds|Rain|Fog ← Previewボタン（展開時）
   [🌤 Weather ON]           ← トグルボタン
-  [🕐 Time ON]              ← 既存トグル
+  [🕐 Time ON]              ← 時刻ライティングトグル
 ```
+
+#### モバイル
+
+```
+画面右下（折りたたみ状態）:
+  (☀️)  ← 40px 円形ボタン（天気アイコンは現在地の実天気を反映）→ タップでパネル展開
+  (🕐)  ← 40px 円形ボタン → タップで Time ON/OFF 直接トグル
+
+展開状態:
+  [Controls]              [✕]
+  [🌤 Weather ON] [🕐 Time ON]  ← トグルボタン横並び
+  ☀️ Tokyo 18°C 快晴            ← 天気ステータス
+  [Tokyo] [Locating...] [Preview ▼]
+```
+
+#### スキルパネル連動
+
+`.fixedLayer` に `data-hidden` 属性を付与。スキルクリスタル選択中（`activeCrystalId !== null`）は opacity 0 + pointer-events none で滑らかにフェードアウトし、3Dシーンの操作を邪魔しない。
+
+#### 共通
 
 - My Location 選択時: 逆ジオコーディングで取得した地名を表示（例: `横浜市`, `渋谷区`）
 - 手動オーバーライド時: 「Manual」バッジ表示
@@ -108,7 +136,7 @@ src/components/ThreeModel/
 |--------|------|
 | Weather API fetch失敗 | `weather: null` → 全倍率 1.0（天気なしと同じ見た目） |
 | ジオロケーション拒否・タイムアウト | 東京にフォールバック |
-| 逆ジオコーディング失敗 | 「My Location」表示にフォールバック |
+| 逆ジオコーディング失敗 | 1秒後に1回リトライ → それでも失敗なら「My Location」表示にフォールバック（localStorageには保存しない） |
 | 不明なWMOコード | `'clear'` にフォールバック |
 | SSGビルド時 | `useEffect` 内でのみfetch → ビルド影響なし |
 

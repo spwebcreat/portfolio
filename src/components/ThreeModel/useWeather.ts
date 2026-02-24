@@ -37,10 +37,41 @@ function setCache(lat: number, lon: number, data: WeatherData) {
 // Default location: Tokyo
 const TOKYO = { lat: 35.6762, lon: 139.6503, name: 'Tokyo' }
 
+const STORAGE_KEY = 'sp-weather-location'
+
 interface LocationState {
   lat: number
   lon: number
   name: string
+}
+
+function loadStoredLocation(): LocationState | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (
+      typeof parsed.lat === 'number' &&
+      typeof parsed.lon === 'number' &&
+      typeof parsed.name === 'string' &&
+      parsed.name !== 'Tokyo'
+    ) {
+      return parsed as LocationState
+    }
+  } catch { /* ignore */ }
+  return null
+}
+
+function saveStoredLocation(loc: LocationState) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(loc))
+  } catch { /* ignore */ }
+}
+
+function clearStoredLocation() {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch { /* ignore */ }
 }
 
 export interface UseWeatherOptions {
@@ -52,22 +83,34 @@ export interface UseWeatherReturn {
   weather: WeatherData | null
   location: LocationState
   isLoading: boolean
+  isGeolocating: boolean
   error: string | null
   setLocation: (type: 'tokyo' | 'geolocation') => void
   refetch: () => void
 }
 
-// Reverse geocoding: coordinates → city name
-async function reverseGeocode(lat: number, lon: number): Promise<string> {
-  const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=ja&zoom=10`
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'sp-webcreat-portfolio/1.0' },
-  })
-  if (!res.ok) throw new Error('Geocoding failed')
-  const json = await res.json()
-  const addr = json.address
-  // Prefer city → town → village → county → state
-  return addr?.city || addr?.town || addr?.village || addr?.county || addr?.state || 'My Location'
+// Reverse geocoding: coordinates → city name (with 1 retry)
+async function reverseGeocode(lat: number, lon: number, retries = 1): Promise<string> {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=ja&zoom=10`
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'sp-webcreat-portfolio/1.0' },
+    })
+    if (!res.ok) throw new Error('Geocoding failed')
+    const json = await res.json()
+    const addr = json.address
+    // Prefer city → city_district(区) → municipality → town → village → county → state
+    const name = addr?.city || addr?.city_district || addr?.municipality
+      || addr?.town || addr?.village || addr?.county || addr?.state
+    if (name) return name
+    throw new Error('No address fields found')
+  } catch (e) {
+    if (retries > 0) {
+      await new Promise(r => setTimeout(r, 1000))
+      return reverseGeocode(lat, lon, retries - 1)
+    }
+    throw e
+  }
 }
 
 async function fetchWeather(lat: number, lon: number): Promise<WeatherData> {
@@ -89,9 +132,11 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherData> {
 }
 
 export function useWeather({ enabled, manualOverride }: UseWeatherOptions): UseWeatherReturn {
-  const [location, setLocationState] = useState<LocationState>(TOKYO)
+  const [location, setLocationState] = useState<LocationState>(() => loadStoredLocation() ?? TOKYO)
   const [apiWeather, setApiWeather] = useState<WeatherData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isGeolocating, setIsGeolocating] = useState(false)
+  const isGeolocatingRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
   const fetchIdRef = useRef(0)
 
@@ -129,13 +174,20 @@ export function useWeather({ enabled, manualOverride }: UseWeatherOptions): UseW
   const setLocation = useCallback((type: 'tokyo' | 'geolocation') => {
     if (type === 'tokyo') {
       setLocationState(TOKYO)
+      clearStoredLocation()
       return
     }
+
+    // Guard: prevent duplicate geolocation requests
+    if (isGeolocatingRef.current) return
 
     if (!navigator.geolocation) {
       setLocationState(TOKYO)
       return
     }
+
+    isGeolocatingRef.current = true
+    setIsGeolocating(true)
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -145,18 +197,27 @@ export function useWeather({ enabled, manualOverride }: UseWeatherOptions): UseW
         setLocationState({ lat, lon, name: '...' })
         try {
           const name = await reverseGeocode(lat, lon)
+          const resolved = { lat, lon, name }
           setLocationState((prev) =>
-            prev.lat === lat && prev.lon === lon ? { ...prev, name } : prev
+            prev.lat === lat && prev.lon === lon ? resolved : prev
           )
+          saveStoredLocation(resolved)
         } catch {
+          const fallback = { lat, lon, name: 'My Location' }
           setLocationState((prev) =>
-            prev.lat === lat && prev.lon === lon ? { ...prev, name: 'My Location' } : prev
+            prev.lat === lat && prev.lon === lon ? fallback : prev
           )
+          // Don't persist generic fallback — next visit should retry geocoding
+        } finally {
+          isGeolocatingRef.current = false
+          setIsGeolocating(false)
         }
       },
       () => {
         // Denied or timeout → fallback to Tokyo
         setLocationState(TOKYO)
+        isGeolocatingRef.current = false
+        setIsGeolocating(false)
       },
       { timeout: 8000 }
     )
@@ -192,5 +253,5 @@ export function useWeather({ enabled, manualOverride }: UseWeatherOptions): UseW
     return apiWeather
   })()
 
-  return { weather, location, isLoading, error, setLocation, refetch }
+  return { weather, location, isLoading, isGeolocating, error, setLocation, refetch }
 }

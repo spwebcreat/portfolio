@@ -621,7 +621,7 @@ export default function ThreeScene() {
   const cyanBoostRef = useRef(0.3);
   const isMobile = useMobile();
 
-  const { weather, location, isLoading, setLocation } = useWeather({
+  const { weather, location, isLoading, isGeolocating, setLocation } = useWeather({
     enabled: weatherEnabled,
     manualOverride,
   });
@@ -655,26 +655,35 @@ export default function ThreeScene() {
 
   return (
     <>
-    {/* 天気パネル（Canvas外・最上位レイヤー） */}
-    <WeatherPanel
-      weather={weather}
-      weatherEnabled={weatherEnabled}
-      onToggleWeather={() => setWeatherEnabled(v => !v)}
-      manualOverride={manualOverride}
-      onSetManualOverride={setManualOverride}
-      locationName={location.name}
-      onSetLocation={setLocation}
-      isLoading={isLoading}
-    />
-    {/* 時刻ライティング トグル（Canvas外・最上位レイヤー） */}
-    <button
-      className={styl.timeToggle}
-      onClick={() => setTimeLightingEnabled(v => !v)}
-      data-active={timeLightingEnabled || undefined}
-      aria-label="Toggle time-based lighting"
-    >
-      {timeLightingEnabled ? '\uD83D\uDD50 Time ON' : '\uD83D\uDD50 Time OFF'}
-    </button>
+    <div className={styl.fixedLayer} data-hidden={activeCrystalId !== null || undefined}>
+      {/* 天気パネル（Canvas外・最上位レイヤー） */}
+      <WeatherPanel
+        weather={weather}
+        weatherEnabled={weatherEnabled}
+        onToggleWeather={() => setWeatherEnabled(v => !v)}
+        manualOverride={manualOverride}
+        onSetManualOverride={setManualOverride}
+        locationName={location.name}
+        onSetLocation={setLocation}
+        isLoading={isLoading}
+        isGeolocating={isGeolocating}
+        isMobile={isMobile}
+        timeLightingEnabled={timeLightingEnabled}
+        onToggleTimeLighting={() => setTimeLightingEnabled(v => !v)}
+      />
+      {/* 時刻ライティング トグル（PC のみ — モバイルは WeatherPanel 内に統合） */}
+      {!isMobile && (
+        <button
+          className={styl.timeToggle}
+          onClick={() => setTimeLightingEnabled(v => !v)}
+          data-active={timeLightingEnabled || undefined}
+          aria-label="Toggle time-based lighting"
+        >
+          {timeLightingEnabled ? '\uD83D\uDD50 Time ON' : '\uD83D\uDD50 Time OFF'}
+        </button>
+      )}
+    </div>
+
     <div className={styl.canvasModel}>
       <Canvas
         camera={{ position: [3, 4, 16], fov: 45 }}
