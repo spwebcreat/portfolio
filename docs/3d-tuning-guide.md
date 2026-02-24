@@ -1,7 +1,7 @@
 # 3Dシーン調整ガイド
 
 > 対象ファイル: `src/components/ThreeModel/index.tsx`, `SkillCrystal.tsx`
-> 最終更新: 2026-02-23
+> 最終更新: 2026-02-24
 
 天空の城（floating-castle.glb）の表示を調整するためのリファレンス。
 
@@ -60,6 +60,22 @@
 ## 2. ライティング（時間変化あり）
 
 3灯構成。`SceneLighting` コンポーネントでスクロールに応じて自動的に色・強さが変化する。
+
+### ライティング基準値
+
+TIME_CONFIG のカーブ形状を維持したまま、全体の明るさを一括スケールする乗数。
+
+```tsx
+const AMBIENT_BASE = 15.0;  // 環境光 — 上げると全体が明るく
+const DIR_BASE     = 3.0;   // 太陽光 — 上げると陰影コントラスト強く
+const CYAN_BASE    = 1.0;   // シアン発光 — 上げると夜間グロウ強く
+```
+
+最終値 = `BASE × TIME_CONFIG値 × リアルタイム時間帯補正`
+
+- **城が暗い** → `AMBIENT_BASE` を上げる（環境光の底上げ）
+- **立体感がほしい** → `DIR_BASE` を上げる（方向光で陰影強調）
+- **シアン発光を強く** → `CYAN_BASE` を上げる
 
 ### 時間変化テーブル（TIME_CONFIG）
 
@@ -177,45 +193,56 @@ const TIME_CONFIG = [
 
 > **対象ファイル**: `src/components/ThreeModel/SkillCrystal.tsx`
 
-5つのスキルクリスタルが城の周囲を衛星のように周回する。各クリスタルは異なる傾斜軌道を持つ。
+5つのスキルクリスタルが城の周囲を**常に等間隔（72°間隔）**で衛星のように周回する。各クリスタルは異なる傾斜軌道を持つ。
 
-### 5-1. 軌道パラメータ（OrbitParams）
+### 5-1. 等間隔軌道と共通速度
+
+全クリスタルは `SHARED_ORBIT_SPEED`（共通角速度）で周回し、初期位相を `index × (360°/5)` で自動設定することで等間隔を保証する。
+
+```tsx
+// SkillCrystal.tsx
+export const SHARED_ORBIT_SPEED = 0.10 // rad/s — 全クリスタル共通
+const angleRef = useRef(index * (2 * Math.PI / N)) // 等間隔の初期位相
+```
+
+- **全体の周回速度を変えたい** → `SHARED_ORBIT_SPEED` を変更（0.05〜0.20 が自然な範囲）
+- **等間隔は自動維持** — 個別に `phase` を調整する必要なし
+
+### 5-2. 軌道パラメータ（OrbitParams）
 
 ```tsx
 orbit: {
   radius: number,   // XZ平面の軌道半径
   height: number,   // 基準Y座標
-  speed: number,    // 角速度 (rad/s)
-  phase: number,    // 初期角度オフセット (度)
+  speed: number,    // （後方互換用・実際はSHARED_ORBIT_SPEEDを使用）
+  phase: number,    // （後方互換用・実際はindex自動算出）
   tilt: number,     // 軌道面の傾斜角 (度)
   tiltDir: number,  // 傾斜方向 (度)
 }
 ```
 
-| Crystal | radius | height | speed | phase | tilt | tiltDir | 周期（約） |
-|---------|--------|--------|-------|-------|------|---------|-----------|
-| Frontend | 1.2 | 0.10 | 0.12 | 0° | 12° | 0° | 52秒 |
-| AI連携 | 1.3 | 0.20 | 0.10 | 72° | 18° | 120° | 63秒 |
-| CMS/FW | 1.1 | 0.00 | 0.14 | 144° | 15° | 240° | 45秒 |
-| Database | 1.4 | 0.30 | 0.08 | 216° | 22° | 60° | 79秒 |
-| Design | 1.5 | -0.10 | 0.11 | 288° | 10° | 180° | 57秒 |
+| Crystal | radius | height | tilt | tiltDir |
+|---------|--------|--------|------|---------|
+| Markup | 1.2 | 0.10 | 12° | 0° |
+| AI | 1.3 | 0.20 | 18° | 120° |
+| CMS/FW | 1.1 | 0.00 | 15° | 240° |
+| DB/Infra | 1.4 | 0.30 | 22° | 60° |
+| Design | 1.5 | -0.10 | 10° | 180° |
 
 #### 調整方法
 
 - **軌道を広げたい** → `radius` を大きくする
-- **周回を速くしたい** → `speed` を大きくする（0.08〜0.14 が自然な範囲）
 - **傾斜をつけたい** → `tilt` を大きくする（22°以上は城と重なるリスク）
-- **位相を調整** → `phase` を変更（5つが均等に分散: 0°, 72°, 144°, 216°, 288°）
+- **高さを変えたい** → `height` で上下位置を調整
 
-### 5-2. クリック時の停止/再開
+### 5-3. クリック時の停止/再開（全体同期）
 
-クリスタルクリック（またはMainVisualのスキルボタン）で `isActive` が切り替わる。
-
-- **active時**: `velocityRef` → 0 にスムーズ減速（lerp factor 0.05）
-- **非active時**: `velocityRef` → `orbit.speed` にスムーズ加速
+クリスタルクリック（またはMainVisualのスキルボタン）で `activeCrystalId` が切り替わる。
+**いずれかのクリスタルがアクティブになると、全クリスタルが一斉に減速停止**し、等間隔を維持する。
 
 ```tsx
-const targetVelocity = isActive ? 0 : orbit.speed;
+// anyActive: activeCrystalId !== null（親から渡される）
+const targetVelocity = anyActive ? 0 : SHARED_ORBIT_SPEED;
 velocityRef.current += (targetVelocity - velocityRef.current) * 0.05;
 ```
 
@@ -232,6 +259,49 @@ velocityRef.current += (targetVelocity - velocityRef.current) * 0.05;
 | 自転 `+= 0.002` | 速度 0.002 | 偶数=時計回り、奇数=反時計回り |
 | 発光 `emissiveBase + sin(t * 1.5) * 1.8` | 振幅 1.8 | active時は ×2.0 |
 | スケール | 通常 0.12 / active 0.14 | クリック時に少し大きく |
+
+---
+
+## 5b. 塔上クリスタル（castle-crystal.glb）
+
+城の左右の塔の上に配置されたクリスタル。スクロール連動で発光し、Bloom でグロウする。
+
+### 配置位置
+
+```tsx
+// CastleCrystals コンポーネント内（index.tsx）
+const POSITIONS: [number, number, number][] = [
+  [-0.74, 0.14, 0.04],  // 左塔
+  [0.738, 0.12, 0.02],  // 右塔
+];
+```
+
+### スクロール連動発光
+
+```tsx
+// emissive: 1.5（朝・常時グロウ）→ 3.5（深夜・強烈）
+const scrollBase = 1.5 + scroll * 2.0;
+const pulse = Math.sin(t * 1.2) * 0.3 + 1; // シアン pointLight と同リズム
+const emissiveIntensity = scrollBase * pulse;
+```
+
+| スクロール | emissiveIntensity（脈動中央値） | グロウ |
+|-----------|-------------------------------|--------|
+| 0%（朝） | 1.5 | あり（常時） |
+| 50%（夕） | 2.5 | しっかり |
+| 100%（深夜） | 3.5 | 強烈 |
+
+### 回転・浮遊
+
+| パラメータ | 値 | 説明 |
+|---|---|---|
+| 回転 `+= 0.005` | 速度 0.005/frame | ゆっくり自転 |
+| 浮遊 `sin(t * 0.8) * 0.003` | 振幅 0.003 | 微小な上下（2つ目はフェーズ 1.5 ずれ） |
+
+### GLB 構造
+
+- マテリアル: `Mat_Crystal.001`（emissiveFactor: `[0, 0.898, 1.0]` = シアン）
+- ジオメトリの頂点がワールド座標に焼き込まれているため、`GEO_OFFSET` で原点センタリングしてから配置
 
 ---
 
@@ -599,7 +669,8 @@ const CAMERA_END   = new THREE.Vector3(0, 0.5, 3);  // 最終位置（OrbitContr
 
 | 原因 | 対処 |
 |---|---|
-| ライトが弱い | TIME_CONFIG の `intensity` / `dirIntensity` を上げる |
+| ライトが弱い | まず `AMBIENT_BASE` / `DIR_BASE` を上げる（カーブ全体をスケール） |
+| 夜間の色が暗すぎる | TIME_CONFIG の `ambient` 色を明るめに変更（例: `#1a1a3e` → `#2a2a5e`） |
 | directionalLight の方向 | `position` を調整して城に光が当たるようにする |
 
 ### 岩盤の位置がずれる
@@ -636,8 +707,9 @@ ThreeScene (export default)
 │   ├── ScrollSparkles       ← パーティクル（スクロール速度連動）
 │   │   └── Sparkles
 │   ├── Float → Model        ← 城 + 結晶 + スケール演出アセット
-│   │   ├── Castle（floating-castle.glb）
-│   │   ├── SkillCrystal × 5（衛星軌道周回）
+│   │   ├── Castle（floating-castle-v5.glb）
+│   │   ├── CastleCrystals（castle-crystal.glb × 2・塔上配置・スクロール発光）
+│   │   ├── SkillCrystal × 5（等間隔衛星軌道周回）
 │   │   ├── DroneScout（周回飛行）
 │   │   ├── OrbitalRing（遠景半透明リング）
 │   │   └── MechanicalBirds × 7（群れ飛行）
@@ -661,7 +733,10 @@ MainVisual (Astro)
 ズーム制限:      min=3  max=3（固定）
 モデルオフセット:  [0, -1, 0]
 
---- ライティング（初期値 / スクロールで TIME_CONFIG に変化）---
+--- ライティング基準値（全体スケール）---
+AMBIENT_BASE=15.0  DIR_BASE=3.0  CYAN_BASE=1.0
+
+--- ライティング（初期値 / スクロールで TIME_CONFIG に変化 × 基準値）---
 ambientLight:     intensity=0.8  color=#fff5e0  (朝)
 directionalLight: intensity=2.0  position=[5, 8, 3]
 pointLight:       intensity=3    color=#00e5ff  distance=3  decay=2
@@ -676,9 +751,13 @@ pointLight:       intensity=3    color=#00e5ff  distance=3  decay=2
 --- Float ---
 speed=1  rotationIntensity=0.5  floatIntensity=0.5  range=[-0.1, 0.5]
 
---- スキルの結晶（衛星軌道周回）---
-radius=1.1〜1.5  speed=0.08〜0.14 rad/s  tilt=10〜22°
-停止/再開: lerp factor 0.05  浮遊振幅=0.03  自転=0.002
+--- 塔上クリスタル（castle-crystal.glb × 2）---
+左塔=[-0.74, 0.14, 0.04]  右塔=[0.738, 0.12, 0.02]
+emissive: 1.5 + scroll * 2.0（常時グロウ）  回転=0.005/frame  浮遊=0.003
+
+--- スキルの結晶（等間隔衛星軌道周回）---
+SHARED_ORBIT_SPEED=0.10 rad/s  等間隔=72°自動  radius=1.1〜1.5  tilt=10〜22°
+停止/再開: anyActive で全体同期 lerp=0.05  浮遊振幅=0.03  自転=0.002
 詳細パネル: 下からスライドアップ（PC/SP共通）max-height=50vh
 
 --- スクロール回転 ---
