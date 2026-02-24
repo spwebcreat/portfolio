@@ -4,7 +4,7 @@ import styl from './index.module.styl';
 
 type Phase = 'glitching' | 'clean' | 'fading';
 
-const CLEAN_DURATION = 1000;
+const CLEAN_DURATION = 1500; // ms
 const FADE_DURATION = 600;
 const BRAND_TEXT = 'SP WEBCREAT.';
 

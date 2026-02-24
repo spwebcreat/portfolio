@@ -140,4 +140,4 @@ Nano Banana Pro（概念画像生成）→ Meshy AI（3Dモデル生成）→ Bl
 
 ## 未着手タスク
 
-→ `docs/r3f-knowledge.md` のロードマップを参照
+→ `docs/3d-tuning-guide.md` §15 のロードマップを参照

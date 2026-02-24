@@ -16,6 +16,10 @@ import { SkillCrystal, SKILL_CRYSTALS } from './SkillCrystal';
 import { CastleReactions } from './CastleReactions';
 import { DroneScout, OrbitalRing, MechanicalBirds, getScrollCyanBoost, useMobile } from './ScaleAssets';
 import LoadingGlitch from './LoadingGlitch';
+import type { WeatherCategory, WeatherMultipliers } from './weatherTypes';
+import { useWeather } from './useWeather';
+import { RainParticles } from './WeatherEffects';
+import { WeatherPanel } from './WeatherPanel';
 import styl from './index.module.styl';
 
 // Draco デコーダーの設定（floating-castle.glb はDraco圧縮済み）
@@ -125,15 +129,19 @@ const MouseParallax = () => {
   return null;
 };
 
-// スクロール時間変化 + リアルタイム時間帯 + シアン脈動を制御するコンポーネント
+// スクロール時間変化 + リアルタイム時間帯 + 天気 + シアン脈動を制御するコンポーネント
 const SceneLighting = ({
   scrollYProgress,
   activeCrystalId,
   timeLightingEnabled,
+  weatherMultipliers,
+  weatherEnabled,
 }: {
   scrollYProgress: any
   activeCrystalId: string | null
   timeLightingEnabled: boolean
+  weatherMultipliers: WeatherMultipliers | null
+  weatherEnabled: boolean
 }) => {
   const ambientRef = useRef<THREE.AmbientLight>(null);
   const dirRef = useRef<THREE.DirectionalLight>(null);
@@ -148,6 +156,11 @@ const SceneLighting = ({
   // Database active 時のシアン増幅
   const dbBoostRef = useRef(0);
 
+  // Weather multiplier lerp refs (smooth ~2s transition)
+  const wAmbientRef = useRef(1.0);
+  const wDirRef = useRef(1.0);
+  const wCyanRef = useRef(1.0);
+
   useFrame(({ clock }) => {
     const scroll = scrollRef.current;
     const scrollTime = lerpTimeConfig(scroll);
@@ -160,21 +173,30 @@ const SceneLighting = ({
     const ambientMul = timeLightingEnabled ? timeOfDay.ambientIntensity : 1.0;
     const cyanMul = timeLightingEnabled ? (0.5 + timeOfDay.cyanBoost * 0.5) : 0.5;
 
-    // 環境光: 基準値 × スクロール時間変化 × リアルタイム時間帯
+    // Weather multiplier lerp (neutral = 1.0 when disabled or null)
+    const wTarget = (weatherEnabled && weatherMultipliers)
+      ? weatherMultipliers
+      : { ambientIntensity: 1.0, dirIntensity: 1.0, cyanBoost: 1.0 };
+    const WEATHER_LERP = 0.02;
+    wAmbientRef.current += (wTarget.ambientIntensity - wAmbientRef.current) * WEATHER_LERP;
+    wDirRef.current += (wTarget.dirIntensity - wDirRef.current) * WEATHER_LERP;
+    wCyanRef.current += (wTarget.cyanBoost - wCyanRef.current) * WEATHER_LERP;
+
+    // 環境光: 基準値 × スクロール時間変化 × リアルタイム時間帯 × 天気
     if (ambientRef.current) {
       ambientRef.current.color.copy(scrollTime.ambient);
-      ambientRef.current.intensity = AMBIENT_BASE * scrollTime.intensity * ambientMul;
+      ambientRef.current.intensity = AMBIENT_BASE * scrollTime.intensity * ambientMul * wAmbientRef.current;
     }
 
-    // 方向光: 基準値 × スクロール時間変化 × リアルタイム時間帯
+    // 方向光: 基準値 × スクロール時間変化 × リアルタイム時間帯 × 天気
     if (dirRef.current) {
-      dirRef.current.intensity = DIR_BASE * scrollTime.dirIntensity * ambientMul;
+      dirRef.current.intensity = DIR_BASE * scrollTime.dirIntensity * ambientMul * wDirRef.current;
     }
 
-    // シアン発光: 基準値 × スクロール時間変化 × リアルタイムcyanBoost × 脈動 × DB boost
+    // シアン発光: 基準値 × スクロール時間変化 × リアルタイムcyanBoost × 脈動 × DB boost × 天気
     if (cyanRef.current) {
       const pulse = Math.sin(clock.elapsedTime * 1.2) * 0.3 + 1; // 0.7〜1.3
-      cyanRef.current.intensity = CYAN_BASE * scrollTime.cyanIntensity * cyanMul * pulse * dbBoostRef.current;
+      cyanRef.current.intensity = CYAN_BASE * scrollTime.cyanIntensity * cyanMul * pulse * dbBoostRef.current * wCyanRef.current;
     }
   });
 
@@ -594,8 +616,15 @@ export default function ThreeScene() {
   const [phase, setPhase] = useState<'loading' | 'fog' | 'ready'>('loading');
   const [activeCrystalId, setActiveCrystalId] = useState<string | null>(null);
   const [timeLightingEnabled, setTimeLightingEnabled] = useState(true);
+  const [weatherEnabled, setWeatherEnabled] = useState(true);
+  const [manualOverride, setManualOverride] = useState<WeatherCategory | null>(null);
   const cyanBoostRef = useRef(0.3);
   const isMobile = useMobile();
+
+  const { weather, location, isLoading, setLocation } = useWeather({
+    enabled: weatherEnabled,
+    manualOverride,
+  });
 
   // MainVisual のスキルボタンからのイベントを受信
   useEffect(() => {
@@ -626,6 +655,17 @@ export default function ThreeScene() {
 
   return (
     <>
+    {/* 天気パネル（Canvas外・最上位レイヤー） */}
+    <WeatherPanel
+      weather={weather}
+      weatherEnabled={weatherEnabled}
+      onToggleWeather={() => setWeatherEnabled(v => !v)}
+      manualOverride={manualOverride}
+      onSetManualOverride={setManualOverride}
+      locationName={location.name}
+      onSetLocation={setLocation}
+      isLoading={isLoading}
+    />
     {/* 時刻ライティング トグル（Canvas外・最上位レイヤー） */}
     <button
       className={styl.timeToggle}
@@ -633,7 +673,7 @@ export default function ThreeScene() {
       data-active={timeLightingEnabled || undefined}
       aria-label="Toggle time-based lighting"
     >
-      {timeLightingEnabled ? '🕐 Time ON' : '🕐 Time OFF'}
+      {timeLightingEnabled ? '\uD83D\uDD50 Time ON' : '\uD83D\uDD50 Time OFF'}
     </button>
     <div className={styl.canvasModel}>
       <Canvas
@@ -645,34 +685,63 @@ export default function ThreeScene() {
         onPointerMissed={() => setActiveCrystalId(null)}
       >
         {/* ライティング（時間変化 + シアン脈動 + DB boost） */}
-        <SceneLighting scrollYProgress={scrollYProgress} activeCrystalId={activeCrystalId} timeLightingEnabled={timeLightingEnabled} />
+        <SceneLighting scrollYProgress={scrollYProgress} activeCrystalId={activeCrystalId} timeLightingEnabled={timeLightingEnabled} weatherMultipliers={weather?.multipliers ?? null} weatherEnabled={weatherEnabled} />
         {/* 星空背景（夜に浮かび上がる） */}
         <NightSky scrollYProgress={scrollYProgress} />
         {/* カメラ reveal 演出（ローディング後にパン＆ズーム） */}
         <CameraReveal phase={phase} />
         {/* マウス追従パララックス（reveal 完了後のみ動作） */}
         {phase === 'ready' && <MouseParallax />}
-        {/* 霧・モヤ演出（ラピュタ風） */}
-        <Cloud
-          position={[0, -0.5, 0]}
-          opacity={0.05}
-          speed={0.2}
-          bounds={[4, 1, 1.5]}
-          segments={5}
-          color="#b0e8ff"
-        />
-        <Cloud
-          position={[1, 0.3, -1]}
-          opacity={0.05}
-          speed={0.15}
-          bounds={[3, 1, 1]}
-          segments={3}
-          color="#e0f0ff"
-        />
+        {/* 霧・モヤ演出（ラピュタ風）— 天気に応じて不透明度・色を変化 */}
+        {(() => {
+          const boost = (weatherEnabled && weather) ? weather.multipliers.cloudOpacityBoost : 0;
+          const isRainy = weatherEnabled && weather && (weather.category === 'rain' || weather.category === 'thunderstorm');
+          const cloudColor = isRainy ? '#8aafcc' : '#b0e8ff';
+          return (
+            <>
+              <Cloud
+                key={`c1-${isRainy}`}
+                position={[0, -0.5, 0]}
+                opacity={0.05 + boost}
+                speed={0.2}
+                bounds={[4, 1, 1.5]}
+                segments={5}
+                color={cloudColor}
+              />
+              <Cloud
+                key={`c2-${isRainy}`}
+                position={[1, 0.3, -1]}
+                opacity={0.05 + boost}
+                speed={0.15}
+                bounds={[3, 1, 1]}
+                segments={3}
+                color={isRainy ? '#7a9bb8' : '#e0f0ff'}
+              />
+              {/* Extra cloud layer for overcast / rain */}
+              {boost > 0.05 && (
+                <Cloud
+                  key={`c3-${isRainy}`}
+                  position={[-1, 0.6, 0.5]}
+                  opacity={boost * 0.8}
+                  speed={0.1}
+                  bounds={[3.5, 0.8, 1.2]}
+                  segments={4}
+                  color={cloudColor}
+                />
+              )}
+            </>
+          );
+        })()}
         {/* パーティクル（スクロール速度連動・ブルーム除外） */}
         <BloomExcluded>
           <ScrollSparkles scrollYProgress={scrollYProgress} />
         </BloomExcluded>
+        {/* 雨パーティクル（天気連動・ブルーム除外） */}
+        {weatherEnabled && weather && weather.multipliers.rainIntensity > 0 && (
+          <BloomExcluded>
+            <RainParticles intensity={weather.multipliers.rainIntensity} windSpeed={weather.windSpeed} />
+          </BloomExcluded>
+        )}
         <AfterBloomRenderer />
         <Float
           speed={1}

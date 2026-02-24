@@ -9,6 +9,7 @@
 
 ## 目次
 
+0. [コンポーネント構成](#0-コンポーネント構成)
 1. [カメラ](#1-カメラ)
 2. [ライティング（時間変化あり）](#2-ライティング時間変化あり)
 3. [モデル位置・スケール](#3-モデル位置スケール)
@@ -23,6 +24,40 @@
 12. [レンダラー設定](#12-レンダラー設定)
 13. [ローディング画面・オープニング演出](#13-ローディング画面オープニング演出)
 14. [トラブルシューティング](#14-トラブルシューティング)
+15. [ロードマップ（未着手タスク）](#15-ロードマップ未着手タスク)
+
+---
+
+## 0. コンポーネント構成
+
+```
+ThreeScene
+├── WeatherPanel（天気UI / トグル・位置切替・Preview セレクタ）
+├── Canvas
+│   ├── CameraReveal（ローディング後のカメラ パン&ズーム演出）
+│   ├── SceneLighting（時間変化 + 天気ライティング + シアン脈動）
+│   ├── NightSky（星空 / スクロール40%以降で表示）
+│   ├── MouseParallax（マウス追従カメラ / phase=ready のみ）
+│   ├── Cloud × 2〜3（霧・モヤ演出 / 天気で不透明度・色が変化）
+│   ├── ScrollSparkles（パーティクル / スクロール速度連動）
+│   ├── RainParticles（雨粒 / 天気連動 / ブルーム除外）
+│   ├── Float → Model（城 + 塔上クリスタル + 結晶 + スケール演出アセット）
+│   └── OrbitControls（phase=ready のみ有効）
+├── CrystalDetailPanel（スキル詳細 / 下からスライドアップ）
+├── LoadingGlitch（グリッチローディング / phase=loading のみ表示）
+└── fogOverlay（CSSフェードアウト）
+
+MainVisual (Astro)
+└── skillNav（スキルボタン × 5 / CustomEvent連携）
+```
+
+### 関連ドキュメント
+
+| ドキュメント | 内容 |
+|---|---|
+| `docs/adr-002-weather-api.md` | 天気API連動の設計判断・仕様 |
+| `docs/adr-001-blog-architecture.md` | ブログ機能の設計判断 |
+| `docs/3d-enhancement-report.md` | 3D強化プロジェクト完了レポート |
 
 ---
 
@@ -690,41 +725,6 @@ OrbitControls がカメラ位置を上書きしている可能性がある。`en
 
 ---
 
-## コンポーネント構成
-
-```
-ThreeScene (export default)
-├── Canvas
-│   ├── CameraReveal         ← ローディング後のカメラ パン&ズーム演出
-│   ├── SceneLighting        ← 時間変化ライティング + シアン脈動
-│   │   ├── ambientLight     ← スクロールで色・強さ変化
-│   │   ├── directionalLight ← スクロールで強さ変化
-│   │   └── pointLight       ← スクロールで強さ変化 + sin脈動
-│   ├── NightSky             ← 星空（スクロール40%以降で visible）
-│   │   └── Stars
-│   ├── MouseParallax        ← マウス追従カメラ（phase=ready のみ）
-│   ├── Cloud × 2            ← 霧・モヤ演出
-│   ├── ScrollSparkles       ← パーティクル（スクロール速度連動）
-│   │   └── Sparkles
-│   ├── Float → Model        ← 城 + 結晶 + スケール演出アセット
-│   │   ├── Castle（floating-castle-v5.glb）
-│   │   ├── CastleCrystals（castle-crystal.glb × 2・塔上配置・スクロール発光）
-│   │   ├── SkillCrystal × 5（等間隔衛星軌道周回）
-│   │   ├── DroneScout（周回飛行）
-│   │   ├── OrbitalRing（遠景半透明リング）
-│   │   └── MechanicalBirds × 7（群れ飛行）
-│   └── OrbitControls        ← ドラッグ操作（phase=ready のみ有効）
-├── CrystalDetailPanel       ← スキル詳細パネル（下からスライドアップ）
-├── LoadingGlitch            ← グリッチローディング画面（phase=loading のみ表示）
-└── fogOverlay               ← 霧オーバーレイ（CSSフェードアウト）
-
-MainVisual (Astro)
-└── skillNav                 ← スキルボタン（CustomEvent で ThreeScene と連携）
-    └── skillBtn × 5         ← crystal:activate / crystal:statechange
-```
-
----
-
 ## 現在の実装値サマリー
 
 ```
@@ -791,3 +791,21 @@ z-index: loadingGlitch=200  fogOverlay=199  canvas=1
 toneMapping: ACESFilmicToneMapping
 outputColorSpace: SRGBColorSpace
 ```
+
+---
+
+## 15. ロードマップ（未着手タスク）
+
+### 実装済み
+
+1. ~~**リアルタイム連動 レイヤー1: 時間帯**~~ — `useTimeOfDay` + Time ON/OFF トグル
+2. ~~**リアルタイム連動 レイヤー2: 天気API**~~ — Open-Meteo + Weather ON/OFF トグル + Preview セレクタ → `docs/adr-002-weather-api.md`
+
+### 優先度: 中
+
+3. **リアルタイム連動 レイヤー3: アクティビティ** — ブログ投稿頻度、GitHub貢献等
+
+### 優先度: 低
+
+4. **遠景浮遊岩群** — 城の岩盤を縮小コピーして配置（distant-rocks.glb）
+5. **3Dビューワーサンプルページ** — クライアント向けデモ

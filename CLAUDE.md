@@ -52,7 +52,8 @@
 
 ### 3Dシーン詳細
 - パラメータ調整: `docs/3d-tuning-guide.md` 参照
-- 未着手タスク・ロードマップ: `docs/r3f-knowledge.md` 参照
+- 未着手タスク・ロードマップ: `docs/3d-tuning-guide.md` §15 参照
+- 天気API連動の設計判断: `docs/adr-002-weather-api.md` 参照
 - プロジェクト完了記録: `docs/3d-enhancement-report.md` 参照
 
 ---
