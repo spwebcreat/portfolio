@@ -39,8 +39,42 @@
 
     <div class="story-block" data-story-index="5">
       <p>経験と技術、そして新しい力を携えて。</p>
-      <p>次の城を、描きにいく。</p>
+      <p>次の城を、創造しにいく。</p>
     </div>
+
+    <div class="story-bottom-nav">
+      <button class="story-bottom-prev" aria-label="Previous" type="button" disabled>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        <span>Prev</span>
+      </button>
+      <button class="story-bottom-next" aria-label="Next" type="button">
+        <span>Next</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"></polyline></svg>
+      </button>
+    </div>
+
+    <div class="story-scroll-cta">
+      <span>Scroll</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+
+    <nav class="story-nav" aria-label="Story navigation">
+      <button class="story-nav-arrow story-nav-prev" aria-label="Previous" type="button" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+      </button>
+      <div class="story-nav-dots">
+        <button class="story-nav-dot is-active" data-nav-index="0" aria-label="Go to heading" type="button"></button>
+        <button class="story-nav-dot" data-nav-index="1" aria-label="Go to block 1" type="button"></button>
+        <button class="story-nav-dot" data-nav-index="2" aria-label="Go to block 2" type="button"></button>
+        <button class="story-nav-dot" data-nav-index="3" aria-label="Go to block 3" type="button"></button>
+        <button class="story-nav-dot" data-nav-index="4" aria-label="Go to block 4" type="button"></button>
+        <button class="story-nav-dot" data-nav-index="5" aria-label="Go to block 5" type="button"></button>
+        <button class="story-nav-dot" data-nav-index="6" aria-label="Go to block 6" type="button"></button>
+      </div>
+      <button class="story-nav-arrow story-nav-next" aria-label="Next" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+    </nav>
   </div>
 </section>
 
@@ -63,6 +97,48 @@
       { start: 0.75, peak: 0.81, end: 0.95 },  // block 5（最後は長め）
     ];
 
+    // --- Navigation elements ---
+    const nav = story.querySelector<HTMLElement>('.story-nav');
+    const prevBtn = story.querySelector<HTMLButtonElement>('.story-nav-prev');
+    const nextBtn = story.querySelector<HTMLButtonElement>('.story-nav-next');
+    const dots = story.querySelectorAll<HTMLButtonElement>('.story-nav-dot');
+    const bottomNav = story.querySelector<HTMLElement>('.story-bottom-nav');
+    const bottomPrev = story.querySelector<HTMLButtonElement>('.story-bottom-prev');
+    const bottomNext = story.querySelector<HTMLButtonElement>('.story-bottom-next');
+    const scrollCta = story.querySelector<HTMLElement>('.story-scroll-cta');
+    let currentNavIndex = 0;
+
+    function scrollToBlock(index: number) {
+      const clamped = Math.max(0, Math.min(BLOCK_TIMINGS.length - 1, index));
+      const storyTop = story!.offsetTop;
+      const storyHeight = story!.offsetHeight - window.innerHeight;
+      const targetScroll = storyTop + storyHeight * BLOCK_TIMINGS[clamped].peak;
+      window.scrollTo({ top: targetScroll, behavior: 'smooth' });
+    }
+
+    function updateNavState(activeIndex: number) {
+      currentNavIndex = activeIndex;
+      dots.forEach((dot, i) => {
+        dot.classList.toggle('is-active', i === activeIndex);
+      });
+      if (prevBtn) prevBtn.disabled = activeIndex <= 0;
+      if (nextBtn) nextBtn.disabled = activeIndex >= BLOCK_TIMINGS.length - 1;
+      if (bottomPrev) bottomPrev.disabled = activeIndex <= 0;
+      if (bottomNext) bottomNext.disabled = activeIndex >= BLOCK_TIMINGS.length - 1;
+    }
+
+    // Click handlers
+    prevBtn?.addEventListener('click', () => scrollToBlock(currentNavIndex - 1));
+    nextBtn?.addEventListener('click', () => scrollToBlock(currentNavIndex + 1));
+    bottomPrev?.addEventListener('click', () => scrollToBlock(currentNavIndex - 1));
+    bottomNext?.addEventListener('click', () => scrollToBlock(currentNavIndex + 1));
+    dots.forEach((dot) => {
+      dot.addEventListener('click', () => {
+        const idx = Number(dot.dataset.navIndex);
+        scrollToBlock(idx);
+      });
+    });
+
     let ticking = false;
 
     function onScroll() {
@@ -78,9 +154,7 @@
         // heading の opacity
         if (heading) {
           const ht = BLOCK_TIMINGS[0];
-          const headingOpacity = progress < ht.start ? 0
-            : progress < ht.peak ? (progress - ht.start) / (ht.peak - ht.start)
-            : progress < ht.end ? 1
+          const headingOpacity = progress < ht.end ? 1
             : Math.max(0, 1 - (progress - ht.end) / 0.1);
           heading.style.opacity = String(headingOpacity);
           heading.style.transform = `translateY(${(1 - headingOpacity) * 15}px)`;
@@ -109,6 +183,32 @@
           detail: { progress, activeBlock }
         }));
 
+        // --- Navigation visibility & active dot ---
+        const isVisible = progress > 0 && progress < 1;
+        const lastTiming = BLOCK_TIMINGS[BLOCK_TIMINGS.length - 1];
+        const isLastBlock = progress >= lastTiming.start && progress < 1;
+        if (nav) {
+          nav.classList.toggle('is-visible', isVisible);
+        }
+        if (bottomNav) {
+          bottomNav.classList.toggle('is-visible', isVisible && !isLastBlock);
+        }
+        if (scrollCta) {
+          scrollCta.classList.toggle('is-visible', isLastBlock);
+        }
+
+        // Find closest block by peak proximity
+        let closestIndex = 0;
+        let closestDist = Infinity;
+        BLOCK_TIMINGS.forEach((bt, i) => {
+          const dist = Math.abs(progress - bt.peak);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestIndex = i;
+          }
+        });
+        updateNavState(closestIndex);
+
         ticking = false;
       });
     }
@@ -130,7 +230,6 @@
     position: relative;
     z-index: 10;
     height: 420vh;
-    pointer-events: none;
   }
 
   .story-inner {
@@ -143,6 +242,7 @@
     align-items: center;
     text-align: center;
     padding: 0 1.5rem;
+    pointer-events: none;
   }
 
   .story-heading {
@@ -151,7 +251,7 @@
     font-size: clamp(1.5rem, 4vw, 2.8rem);
     color: #FDFDFD;
     margin-bottom: 2.5rem;
-    opacity: 0;
+    opacity: 1;
     transition: none;
     text-shadow: 0 0 40px rgba(0, 229, 255, 0.25);
     letter-spacing: 0.02em;
@@ -188,6 +288,161 @@
     margin: 0;
   }
 
+  /* --- Story Navigation --- */
+  .story-nav {
+    position: fixed;
+    right: 1.5rem;
+    top: 50%;
+    translate: 0 -50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    z-index: 20;
+    pointer-events: auto;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .story-nav.is-visible {
+    opacity: 1;
+  }
+
+  .story-nav-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 229, 255, 0.25);
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(4px);
+    color: rgba(253, 253, 253, 0.7);
+    cursor: pointer;
+    transition: color 0.25s, border-color 0.25s, box-shadow 0.25s;
+  }
+
+  .story-nav-arrow:hover:not(:disabled) {
+    color: #00e5ff;
+    border-color: rgba(0, 229, 255, 0.5);
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.15);
+  }
+
+  .story-nav-arrow:disabled {
+    opacity: 0.25;
+    cursor: default;
+  }
+
+  .story-nav-dots {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0;
+  }
+
+  .story-nav-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    background: rgba(253, 253, 253, 0.15);
+    cursor: pointer;
+    transition: background 0.25s, border-color 0.25s, box-shadow 0.25s, transform 0.25s;
+    padding: 0;
+  }
+
+  .story-nav-dot:hover {
+    background: rgba(0, 229, 255, 0.3);
+    border-color: rgba(0, 229, 255, 0.5);
+  }
+
+  .story-nav-dot.is-active {
+    background: #00e5ff;
+    border-color: #00e5ff;
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+    transform: scale(1.3);
+  }
+
+  /* --- Bottom arrow nav --- */
+  .story-bottom-nav {
+    position: absolute;
+    top: calc(50% + 5rem);
+    left: 50%;
+    translate: -50% 0;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    z-index: 20;
+    pointer-events: auto;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .story-bottom-nav.is-visible {
+    opacity: 1;
+  }
+
+  .story-bottom-nav button {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    border: none;
+    background: none;
+    color: rgba(253, 253, 253, 0.5);
+    cursor: pointer;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    transition: color 0.25s;
+    padding: 0.4rem 0;
+  }
+
+  .story-bottom-nav button:hover:not(:disabled) {
+    color: rgba(253, 253, 253, 0.85);
+  }
+
+  .story-bottom-nav button:disabled {
+    opacity: 0.2;
+    cursor: default;
+  }
+
+  /* --- Scroll CTA (last block) --- */
+  .story-scroll-cta {
+    position: absolute;
+    top: calc(50% + 5rem);
+    left: 50%;
+    translate: -50% 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    z-index: 20;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    color: rgba(253, 253, 253, 0.45);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+  }
+
+  .story-scroll-cta.is-visible {
+    opacity: 1;
+  }
+
+  .story-scroll-cta svg {
+    animation: story-bounce 1.8s ease-in-out infinite;
+  }
+
+  @keyframes story-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(4px); }
+  }
+
   @media (max-width: 768px) {
     .story {
       height: 480vh;
@@ -198,6 +453,36 @@
     }
     .story-block::before {
       background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.6) 0%, transparent 75%);
+    }
+    .story-nav {
+      right: 0.75rem;
+    }
+    .story-nav-arrow {
+      width: 30px;
+      height: 30px;
+    }
+    .story-nav-arrow svg {
+      width: 14px;
+      height: 14px;
+    }
+    .story-nav-dot {
+      width: 7px;
+      height: 7px;
+    }
+    .story-bottom-nav {
+      top: calc(50% + 4rem);
+      gap: 1.5rem;
+    }
+    .story-bottom-nav button {
+      font-size: 0.78rem;
+    }
+    .story-bottom-nav button svg {
+      width: 12px;
+      height: 12px;
+    }
+    .story-scroll-cta {
+      top: calc(50% + 4rem);
+      font-size: 0.75rem;
     }
   }
 </style>
