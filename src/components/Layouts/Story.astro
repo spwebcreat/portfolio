@@ -230,6 +230,9 @@
     position: relative;
     z-index: 10;
     height: 420vh;
+    @media (min-width: 768px) {
+      pointer-events: none;
+    }
   }
 
   .story-inner {
@@ -242,7 +245,9 @@
     align-items: center;
     text-align: center;
     padding: 0 1.5rem;
-    pointer-events: none;
+    @media (max-width: 768px) {
+      pointer-events: none;
+    }
   }
 
   .story-heading {
