@@ -43,8 +43,8 @@ MAX_RETRIES = 3
 # Fallback chains by mode: primary → secondary → final
 MODEL_CHAINS = {
     "hero": [
-        "gemini-3-pro-image-preview",
         "gemini-3.1-flash-image-preview",
+        "gemini-3-pro-image-preview",
         FALLBACK_FINAL,
     ],
     "article": [

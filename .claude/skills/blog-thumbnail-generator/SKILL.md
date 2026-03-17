@@ -59,15 +59,15 @@ Check the project `CLAUDE.md` for `サムネイル生成設定`. Use those value
 
 | Mode | Auto-selected Model | ID | Why |
 |------|--------------------|----|-----|
-| `hero` | **Pro 3** | `gemini-3-pro-image-preview` | 高品質、複雑な構図に強い |
+| `hero` | **Flash 3.1** | `gemini-3.1-flash-image-preview` | 高速・高品質のバランスが良い |
 | `article` | **Flash 3.1** | `gemini-3.1-flash-image-preview` | 高速、記事内画像に十分な品質 |
 
 | Fallback | `gemini-2.5-flash-image` | 全モデル失敗時の最終手段 |
 
-`--model gemini-3.1-flash-image-preview` のように明示指定でオーバーライド可能。
+`--model gemini-3-pro-image-preview` のように明示指定でオーバーライド可能。
 
 Auto-retry: 各モデル最大3回 → 次のモデルへフォールバック。
-- hero: Pro 3 → Flash 3.1 → Flash 2.5
+- hero: Flash 3.1 → Pro 3 → Flash 2.5
 - article: Flash 3.1 → Pro 3 → Flash 2.5
 
 ## Generation Modes
